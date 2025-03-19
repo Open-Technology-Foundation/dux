@@ -11,12 +11,11 @@ The `dux` package consists of two complementary tools:
 
 1. **dux**: A powerful wrapper for the `du` (disk usage) command that provides directory tree traversal, recursive size calculation, and customizable output formatting.
 
-2. **dir-sizes**: A utility that leverages `dux` to display directory sizes in human-readable format (KB, MB, GB, etc.).
+2. **dir-sizes**: A utility that displays directory sizes in human-readable format (KB, MB, GB, etc.) by using direct `du` calls for accurate measurements.
 
 ## Features
 
 - **Fast Directory Traversal**: Efficiently scan directories and calculate sizes
-- **Caching System**: Two-level caching (file-based and in-memory) for improved performance
 - **Configurable Recursion**: Control how deep the directory tree is traversed
 - **Human-Readable Output**: Convert raw bytes to human-readable formats
 - **Customizable Display**: Sort by size, use number separators, and more
@@ -54,7 +53,6 @@ dux                     # Show sizes for current directory
 dux -r 2 /home          # Recurse 2 levels into /home
 dux -s -S /var          # Show sorted sizes with separators
 dux --du -h /usr        # Pass -h to du for human-readable sizes
-dux -F /opt             # Force fresh calculation, ignore cache
 ```
 
 Options:
@@ -66,8 +64,6 @@ Options:
 -f, --number_format fmt Set number format to 'sep' or 'nosep'
 -R, --dir_root dir      Set the root directory for output
 -S, --sort              Sort output by size (ascending)
--C, --no-cache          Disable cache, always compute fresh results
--F, --force             Force refresh cache even if it's valid
 -V, --version           Display version info
 -h, --help              Display help message
 --                      Treat all following arguments as directories
@@ -93,17 +89,6 @@ Options:
 -h, --help    Display help message
 ```
 
-## Caching
-
-`dux` implements a two-level caching system:
-
-1. **File-based cache**: Results are stored in `~/.cache/dux/` with a 1-hour time-to-live (TTL)
-2. **In-memory cache**: Avoids redundant calculations within a single run
-
-To control caching behavior:
-- Use `-C` to disable caching completely
-- Use `-F` to force a refresh of the cache
-
 ## Output Format
 
 ### dux
@@ -115,6 +100,7 @@ Where:
 - `<size>` is the directory size in bytes
 - `<level>` is the recursion level (0 for top level)
 - `<path>` is the directory path
+- `<symlink-indicator>` is * for symlinks
 
 ### dir-sizes
 ```
@@ -124,6 +110,16 @@ Where:
 Where:
 - `<size>` is the human-readable size (e.g., 128MB, 1.5GB)
 - `<path>` is the directory path
+
+## Testing
+
+You can test the functionality with:
+
+```bash
+bash test-dux.sh        # Test all components
+bash test-dux.sh dux    # Test only dux
+bash test-dux.sh dir-sizes # Test only dir-sizes
+```
 
 ## Author
 

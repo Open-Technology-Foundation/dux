@@ -1,11 +1,4 @@
 #!/bin/bash
-#
-# dux - A wrapper script for 'du' (disk usage) that provides directory traversal,
-# recursive size calculation, caching, and customizable output formatting.
-#
-# Copyright (C) 2025 Gary Dean <garydean@okusi.id>
-# License: GPL-3.0
-#
 set -euo pipefail
 
 # Function to recursively print directory structure and sizes
@@ -14,7 +7,7 @@ du_tree() {
   local PRGDIR=$(dirname "$PRG0")
   local PRG=$(basename "$PRG0")
   local AUTHOR='Gary Dean, garydean@okusi.id'
-  local VERSION='0.0.4'
+  local VERSION='0.0.3'
 
   local DU=$(command -v du || echo '')
   if [[ -z "$DU" ]]; then
@@ -31,62 +24,47 @@ du_tree() {
   # Enable sorting
   local sort_output="no"
   local sort_opts="-n"
-  
-  # Cache options
-  local use_cache="yes"
-  local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/dux"
-  local cache_ttl=3600  # Cache validity in seconds (1 hour)
-  local cache_file=""
-  local force_refresh="no"
 
   du_tree.help() {
     cat <<-EOT
-$PRG v${VERSION}
+$PRG vs ${VERSION}
     
-A wrapper script for 'du' (disk usage) that provides directory tree traversal,
-recursive size calculation, caching, and customizable output formatting.
+Wrapper script for 'du' (disk usage) that provides enhanced features.
 
-USAGE:
-  $PRG [-sNVCF] [-r depth] [-f format] [-R rootdir] [-S] [du-options...] dir...
+Usage: $PRG [-sNV] [-r maxrecurse] [-f format] [-R rootdir] [-S] [du-options...] dir...
  
 OPTIONS:
-  -r, --max_recurse depth  Maximum recursion depth (currently: $max_recurse)
-                           Use -1 for unlimited depth (max 99)
-  -s, --sep               Use number separator character in size output
-  -N, --nosep             Do not use number separator (default: $number_format)
-  -f, --number_format fmt Set number format to 'sep' or 'nosep'
-  -R, --dir_root dir      Set the root directory for output
-  -S, --sort              Sort output by size (ascending)
-  -C, --no-cache          Disable cache, always compute fresh results
-  -F, --force             Force refresh cache even if it's valid
-  -V, --version           Display version info ($VERSION)
-  -h, --help              Display this help message
-  --                      Treat all following arguments as directories
-  --du                    Pass all following arguments to 'du' ($DU)
+-r|--max_recurse int
+              Maximum recursion depth (use -1 for unlimited, max 99).
+              Currently '$max_recurse'.
+-s|--sep      Use number separator character in size display.
+-N|--nosep    Do not use number separator character in size display.
+              Currently '--$number_format'.
+-f|--number_format format
+              Set number format to 'sep' or 'nosep'.
+-R|--dir_root directory
+              Set the root directory for output.
+-S|--sort     Sort output by size (ascending).
+-V|--version  Version info ($VERSION)
+-h|--help     Display this help message.
+--            Consider all following arguments to be directories 
+              and stop processing further arguments/options.
+--du          Consider all following arguments to be 'du' ($DU)
+              options and stop processing further arguments/options.
 
-CACHE:
-  Results are cached in $cache_dir with a TTL of $cache_ttl seconds (1 hour).
-  Use -C to disable cache or -F to force a refresh.
-  The script also uses memory caching to avoid redundant calculations.
-
-OUTPUT FORMAT:
-  <size> <level> <path> [<symlink-indicator>]
-  
-  Where:
-    <size>  is the directory size in bytes
-    <level> is the recursion level (0 for top level)
-    <path>  is the directory path
-  
 EXAMPLES:
   $PRG                     # Show sizes for current directory
   $PRG -r 2 /home          # Recurse 2 levels into /home
   $PRG -s -S /var          # Show sorted sizes with separators
   $PRG --du -h /usr        # Pass -h to du for human-readable sizes
-  $PRG -F /opt             # Force fresh calculation, ignore cache
 
-SEE ALSO:
-  dir-sizes                # For human-readable output
-  tree -dCs -L 4 --du      # Alternative tree-based visualization
+OUTPUT FORMAT:
+  <size> <level> <path> [<symlink-indicator>]
+  Where:
+  - <size> is the directory size in bytes
+  - <level> is the recursion level (0 for top level)
+  - <path> is the directory path
+  - <symlink-indicator> is * for symlinks
 
 EOT
   }
@@ -106,13 +84,11 @@ EOT
     -R|--dir_root)
                   shift; dir_root="$1" ;;
     -S|--sort)    sort_output="yes" ;;
-    -C|--no-cache) use_cache="no" ;;
-    -F|--force)   force_refresh="yes" ;;
     -V|--version) echo "$PRG vs ${VERSION}"; return 0 ;;
     -h|--help)    du_tree.help; return 0 ;;
     --)           shift; aDir+=( "$@" );  break ;;
     --du)         shift; aDuOpts+=( "$@" ); break ;;
-    -[rsNfRSCFVh]*)  #shellcheck disable=SC2046 # expand aggregated short options
+    -[rsNfRSVh]*)  #shellcheck disable=SC2046 # expand aggregated short options
                   set -- '' $(printf -- "-%c " $(grep -o . <<<"${1:1}")) "${@:2}" ;;
     -*)           aDuOpts+=( "$1" ) ;;
     *)            aDir+=( "$1" ) ;;
@@ -124,37 +100,13 @@ EOT
   # Set default root directory if not specified
   [[ -z "$dir_root" && recurse_level -eq 0 ]] && dir_root=${aDir[0]}
   
-  # Setup cache directory if caching is enabled
-  if [[ "$use_cache" == "yes" && recurse_level -eq 0 ]]; then
-    mkdir -p "$cache_dir"
-    
-    # Generate a cache key based on arguments and options
-    local cache_key
-    cache_key=$(echo "${aDir[*]}|${aDuOpts[*]}|$max_recurse|$number_format|$sort_output" | md5sum | cut -d' ' -f1)
-    cache_file="$cache_dir/$cache_key"
-    
-    # Use cache if available and not expired
-    if [[ "$force_refresh" != "yes" && -f "$cache_file" ]]; then
-      local cache_time file_time current_time
-      cache_time=$(stat -c %Y "$cache_file")
-      current_time=$(date +%s)
-      
-      # Check if cache is still valid
-      if (( current_time - cache_time < cache_ttl )); then
-        cat "$cache_file"
-        return 0
-      fi
-    fi
+  # Temporary file for sorting if needed
+  local tmp_output=""
+  if [[ "$sort_output" == "yes" ]]; then
+    tmp_output=$(mktemp)
+    trap 'rm -f "$tmp_output"' EXIT
   fi
-  
-  # Temporary file for sorting or caching
-  local tmp_output
-  tmp_output=$(mktemp)
-  trap 'rm -f "$tmp_output"' EXIT
-  
-  # Create a directory size cache for the current run
-  declare -A dir_sizes
-  
+
   # Process each directory
   for dir in "${aDir[@]}"; do
     # Check if directory exists
@@ -170,21 +122,17 @@ EOT
     for item in "${dir}"/*; do
       # If the item is a directory
       if [[ -d "$item" ]] && [[ ! -L "$item" ]]; then
-        # Check if we already calculated this directory's size
-        if [[ -n "${dir_sizes[$item]:-}" ]]; then
-          size=${dir_sizes[$item]}
-        else
-          # Calculate directory size
-          size=$(( $( (${DU} --no-dereference -bs --exclude="*proc/*" --exclude="*run/*" "${aDuOpts[@]}" "$item" | cut -f1) || echo 0) ))
-          # Store in our cache
-          dir_sizes[$item]=$size
-        fi
-        
+        # Calculate directory size
+        size=$(( $( (${DU} --no-dereference -bs --exclude="*proc/*" --exclude="*run/*" "${aDuOpts[@]}" "$item" | cut -f1) || echo 0) ))
         total_dir_size+=$size
         [[ -L "$item" ]] && filestat='*' || filestat=''
         
         # Print directory size
-        printf "%15d %d %s %s\n" "$size" "$recurse_level" "${item//\/\//\/}" "$filestat" >> "$tmp_output"
+        if [[ "$sort_output" == "yes" ]]; then
+          printf "%15d %d %s %s\n" "$size" "$recurse_level" "${item//\/\//\/}" "$filestat" >> "$tmp_output"
+        else
+          printf "%15d %d %s %s\n" "$size" "$recurse_level" "${item//\/\//\/}" "$filestat"
+        fi
         
         # Recursively print subdirectories
         if ((recurse_level < max_recurse)); then
@@ -193,8 +141,7 @@ EOT
               --recurse_level "${recurse_level}" \
               --max_recurse "${max_recurse}" \
               --number_format "${number_format}" \
-              --dir_root "${dir_root}" \
-              --no-cache
+              --dir_root "${dir_root}"
           ((recurse_level--))
         fi
       fi
@@ -203,27 +150,20 @@ EOT
     
     # Print total size for the root directory
     if (( recurse_level == 0 )); then
-      printf "%15d %d %s\n" "$total_dir_size" "$recurse_level" "${dir_root//\/\//\/}" >> "$tmp_output"
+      if [[ "$sort_output" == "yes" ]]; then
+        printf "%15d %d %s\n" "$total_dir_size" "$recurse_level" "${dir_root//\/\//\/}" >> "$tmp_output"
+      else
+        printf "%15d %d %s\n" "$total_dir_size" "$recurse_level" "${dir_root//\/\//\/}"
+      fi
     fi
   done
   
-  # Sort output if requested
-  if [[ "$sort_output" == "yes" ]]; then
-    sort $sort_opts "$tmp_output" > "$tmp_output.sorted"
-    mv "$tmp_output.sorted" "$tmp_output"
+  # Output sorted results if requested
+  if [[ "$sort_output" == "yes" && -f "$tmp_output" ]]; then
+    sort $sort_opts "$tmp_output"
+    rm -f "$tmp_output"
+    trap - EXIT
   fi
-  
-  # Save to cache if enabled
-  if [[ "$use_cache" == "yes" && recurse_level -eq 0 && -n "$cache_file" ]]; then
-    cp "$tmp_output" "$cache_file"
-  fi
-  
-  # Output results
-  cat "$tmp_output"
-  
-  # Clean up
-  rm -f "$tmp_output"
-  trap - EXIT
 }
 
 # Set locale for number formatting if separator is used

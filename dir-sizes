@@ -1,11 +1,4 @@
 #!/bin/bash
-#
-# dir-sizes - A utility script that displays directory sizes in human-readable format.
-# Uses 'dux' to calculate directory sizes and converts results to KB, MB, GB, etc.
-#
-# Copyright (C) 2025 Gary Dean <garydean@okusi.id>
-# License: GPL-3.0
-#
 set -euo pipefail
 declare -- PRG0=$(readlink -fn -- "$0")
 declare -- PRGDIR=$(dirname -- "$PRG0")
@@ -13,40 +6,26 @@ declare -- PRG=$(basename -- "$PRG0")
 
 declare -a Dirs=()
 declare -- dir hr_size size
-declare -- tmpdir=/tmp/dir-sizes_"$$"_"$RANDOM"
+declare -- tmpdir=/tmp/.dir-sizes_"$$"_"$RANDOM"
 
 if (($#)); then
   if [[ $1 == '-h' || $1 == '--help' ]]; then
     cat <<-EOT
-dir-sizes v1.0.0
+dir-sizes - Display directory sizes in human-readable format
 
-A utility script that displays directory sizes in human-readable format.
-This script uses 'dux' to calculate directory sizes and then converts
-the raw byte values to human-readable units (KB, MB, GB, etc.).
+Usage: $PRG [dir]
+  dir    Directory to analyze (defaults to current directory)
 
-USAGE:
-  dir-sizes [dir]
+Examples:
+  $PRG              # Show sizes for current directory subdirectories
+  $PRG /var         # Show sizes for /var subdirectories
+  $PRG | sort -h    # Sort by human-readable sizes
 
-OPTIONS:
-  -h, --help    Display this help message
-
-ARGUMENTS:
-  dir           Directory to analyze (default: current directory)
-
-OUTPUT FORMAT:
+Output Format:
   <size>  <path>
-  
   Where:
-    <size>  is the human-readable size (e.g., 128MB, 1.5GB)
-    <path>  is the directory path
-
-EXAMPLES:
-  dir-sizes              # Show sizes for current directory subdirectories
-  dir-sizes /var         # Show sizes for /var subdirectories
-  dir-sizes | sort -h    # Sort by human-readable sizes
-
-SEE ALSO:
-  dux                    # For more options and raw byte output
+  - <size> is the human-readable size (e.g., 128MB, 1.5GB)
+  - <path> is the directory path
 EOT
     exit 0
   fi
@@ -54,10 +33,20 @@ fi
 
 readarray -t Dirs < <(find "${1:-./}" -maxdepth 1 -type d)
 
-# First pass: collect and sort by raw bytes
+# First pass: collect directory sizes directly using du
+# Create empty temp file
+> "$tmpdir"
+
 for dir in "${Dirs[@]}"; do
-  "$PRGDIR"/dux -F "$dir" |sort -n | tail -n1
-done | sort -n > "$tmpdir"
+  # Get the raw size in bytes using du
+  size=$(du -sb "$dir" | cut -f1)
+  # Write to temporary file with proper format
+  printf "%15d 0 %s\n" "$size" "$dir" >> "$tmpdir"
+done
+
+# Sort by size
+sort -n "$tmpdir" > "${tmpdir}.sorted"
+mv "${tmpdir}.sorted" "$tmpdir"
 
 # Second pass: display with human-readable sizes while preserving order
 while read -r size nodes dir; do
@@ -66,6 +55,6 @@ while read -r size nodes dir; do
 done < "$tmpdir"
 
 # Clean up
-rm "$tmpdir"
+rm -f "$tmpdir"
 
 #fin
