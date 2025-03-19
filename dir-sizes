@@ -1,0 +1,71 @@
+#!/bin/bash
+#
+# dir-sizes - A utility script that displays directory sizes in human-readable format.
+# Uses 'dux' to calculate directory sizes and converts results to KB, MB, GB, etc.
+#
+# Copyright (C) 2025 Gary Dean <garydean@okusi.id>
+# License: GPL-3.0
+#
+set -euo pipefail
+declare -- PRG0=$(readlink -fn -- "$0")
+declare -- PRGDIR=$(dirname -- "$PRG0")
+declare -- PRG=$(basename -- "$PRG0")
+
+declare -a Dirs=()
+declare -- dir hr_size size
+declare -- tmpdir=/tmp/dir-sizes_"$$"_"$RANDOM"
+
+if (($#)); then
+  if [[ $1 == '-h' || $1 == '--help' ]]; then
+    cat <<-EOT
+dir-sizes v1.0.0
+
+A utility script that displays directory sizes in human-readable format.
+This script uses 'dux' to calculate directory sizes and then converts
+the raw byte values to human-readable units (KB, MB, GB, etc.).
+
+USAGE:
+  dir-sizes [dir]
+
+OPTIONS:
+  -h, --help    Display this help message
+
+ARGUMENTS:
+  dir           Directory to analyze (default: current directory)
+
+OUTPUT FORMAT:
+  <size>  <path>
+  
+  Where:
+    <size>  is the human-readable size (e.g., 128MB, 1.5GB)
+    <path>  is the directory path
+
+EXAMPLES:
+  dir-sizes              # Show sizes for current directory subdirectories
+  dir-sizes /var         # Show sizes for /var subdirectories
+  dir-sizes | sort -h    # Sort by human-readable sizes
+
+SEE ALSO:
+  dux                    # For more options and raw byte output
+EOT
+    exit 0
+  fi
+fi
+
+readarray -t Dirs < <(find "${1:-./}" -maxdepth 1 -type d)
+
+# First pass: collect and sort by raw bytes
+for dir in "${Dirs[@]}"; do
+  "$PRGDIR"/dux -F "$dir" |sort -n | tail -n1
+done | sort -n > "$tmpdir"
+
+# Second pass: display with human-readable sizes while preserving order
+while read -r size nodes dir; do
+  hr_size=$(numfmt --to=iec --suffix=B --format="%.1f" "$size")
+  printf "%-10s\t%s\n" "$hr_size" "$dir"
+done < "$tmpdir"
+
+# Clean up
+rm "$tmpdir"
+
+#fin
