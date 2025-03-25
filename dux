@@ -6,10 +6,9 @@ du_tree() {
   local PRG0=$(readlink -fn -- "$0")
   local PRGDIR=$(dirname "$PRG0")
   local PRG=$(basename "$PRG0")
-  local AUTHOR='Gary Dean, garydean@okusi.id'
   local VERSION='0.0.3'
 
-  local DU=$(command -v du || echo '')
+  local DU=$(command -v du >/dev/null || echo '')
   if [[ -z "$DU" ]]; then
     echo >&2 'Program `du` was not found!'
     return 22
