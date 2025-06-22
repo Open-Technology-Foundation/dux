@@ -6,7 +6,7 @@ declare -- PRG=$(basename -- "$PRG0")
 
 declare -a Dirs=()
 declare -- dir hr_size size
-declare -- tmpdir=/tmp/.dir-sizes_"$$"_"$RANDOM"
+declare -- tmpdir=${TMPDIR:-/tmp}/.dir-sizes_"$$"_"$RANDOM"
 
 if (($#)); then
   if [[ $1 == '-h' || $1 == '--help' ]]; then
