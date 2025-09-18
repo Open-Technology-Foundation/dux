@@ -1,60 +1,157 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
-declare -- PRG0=$(readlink -fn -- "$0")
-declare -- PRGDIR=$(dirname -- "$PRG0")
-declare -- PRG=$(basename -- "$PRG0")
 
-declare -a Dirs=()
-declare -- dir hr_size size
-declare -- tmpdir=${TMPDIR:-/tmp}/.dir-sizes_"$$"_"$RANDOM"
+VERSION='1.1.0'
+PRG=${0##*/}
+readonly -- VERSION PRG
 
-if (($#)); then
-  if [[ $1 == '-h' || $1 == '--help' ]]; then
-    cat <<-EOT
-dir-sizes - Display directory sizes in human-readable format
+# Global for trap cleanup
+declare -- DIRSIZES_TMPDIR=''
 
-Usage: $PRG [dir]
-  dir    Directory to analyze (defaults to current directory)
+# Core message function
+_msg() {
+  local -- prefix="$PRG:" msg
+  for msg in "$@"; do printf '%s %s\n' "$prefix" "$msg"; done
+}
+# Error message to stderr
+error() { >&2 _msg "$@"; }
+# Exit with error
+die() { (($# > 1)) && error "${@:2}"; exit "${1:-0}"; }
+
+# --------------------------------------------------------------------------------
+# Usage documentation
+# --------------------------------------------------------------------------------
+usage() {
+  cat <<EOT
+$PRG $VERSION - Display directory sizes in sorted human-readable format
+
+Calculates and displays the total size of each subdirectory in the specified
+directory, sorted from smallest to largest.
+
+Usage: $PRG [Options] [directory]
+
+Options:
+  -h, --help    Display this help message
+  -V, --version Display version information
+
+Arguments:
+  directory     Directory to analyze (defaults to current directory)
 
 Examples:
-  $PRG              # Show sizes for current directory subdirectories
-  $PRG /var         # Show sizes for /var subdirectories
-  $PRG | sort -h    # Sort by human-readable sizes
+  $PRG                # Show sizes for current directory subdirectories
+  $PRG /var           # Show sizes for /var subdirectories
 
 Output Format:
   <size>  <path>
   Where:
   - <size> is the human-readable size (e.g., 128MB, 1.5GB)
   - <path> is the directory path
+
+Notes:
+  - Sizes shown include all nested subdirectories (recursive calculation)
+  - Permission errors are shown on stderr but don't stop execution
+  - Results are based on actual disk usage (du -sb)
+  - Directories are sorted by size (smallest first)
+
+Exit Codes:
+  0  Success
+  1  General error (invalid directory, complete du failure)
+  22 Invalid command-line option
+
 EOT
-    exit 0
-  fi
-fi
+  exit "${1:-0}"
+}
 
-readarray -t Dirs < <(find "${1:-./}" -maxdepth 1 -type d)
+# --------------------------------------------------------------------------------
+# Cleanup function for trap
+# --------------------------------------------------------------------------------
+cleanup() {
+  local -i exitcode=${1:-0}
+  [[ -n "${DIRSIZES_TMPDIR:-}" ]] && [[ -f "$DIRSIZES_TMPDIR" ]] && rm -f "$DIRSIZES_TMPDIR"
+  exit "$exitcode"
+}
 
-# First pass: collect directory sizes directly using du
-# Create empty temp file
-> "$tmpdir"
+# --------------------------------------------------------------------------------
+# Main function
+# --------------------------------------------------------------------------------
+main() {
+  local -a Dirs=()
+  local -- dir='' hr_size=''
+  local -i size=0
 
-for dir in "${Dirs[@]}"; do
-  # Get the raw size in bytes using du
-  size=$(du -sb "$dir" | cut -f1)
-  # Write to temporary file with proper format
-  printf "%15d 0 %s\n" "$size" "$dir" >> "$tmpdir"
-done
+  # Parse arguments
+  while (($#)); do
+    case "$1" in
+      -h|--help)    usage 0 ;;
+      -V|--version) echo "$PRG $VERSION"; exit 0 ;;
+      -[nV]*) #shellcheck disable=SC2046 #split up single options
+                    set -- '' $(printf -- "-%c " $(grep -o . <<<"${1:1}")) "${@:2}"
+                    ;;
+      -*)           die 22 "Invalid option '$1'" ;;
+      *)            [[ -n "$dir" ]] && die 1 'Too many arguments'
+                    dir="$1"
+                    ;;
+    esac
+    shift
+  done
 
-# Sort by size
-sort -n "$tmpdir" > "${tmpdir}.sorted"
-mv "${tmpdir}.sorted" "$tmpdir"
+  # Default to current directory if no directory specified
+  : "${dir:=./}"
 
-# Second pass: display with human-readable sizes while preserving order
-while read -r size nodes dir; do
-  hr_size=$(numfmt --to=iec --suffix=B --format="%.1f" "$size")
-  printf "%-10s\t%s\n" "$hr_size" "$dir"
-done < "$tmpdir"
+  # Validate directory exists
+  [[ -d "$dir" ]] || die 1 "Not a directory: '$dir'"
 
-# Clean up
-rm -f "$tmpdir"
+  # Set up temp file (use global for trap access)
+  DIRSIZES_TMPDIR="${TMPDIR:-/tmp}/.dir-sizes_$$_$RANDOM"
 
+  # Set trap for cleanup
+  trap 'cleanup $?' SIGINT SIGTERM EXIT
+
+  # Find all directories at depth 1
+  readarray -t Dirs < <(find "$dir" -maxdepth 1 -type d 2>/dev/null || true)
+
+  # Check if we found any directories
+  ((${#Dirs[@]})) || die 1 "No directories found in '$dir'"
+
+  # First pass: collect directory sizes directly using du
+  # Create empty temp file
+  : > "$DIRSIZES_TMPDIR"
+
+  for dir in "${Dirs[@]}"; do
+    # Get the raw size in bytes using du
+    # du may return exit code 1 on permission errors but still outputs the size it could calculate
+    # Temporarily allow non-zero exit codes for this command
+    set +e
+    size=$(du -sb "$dir" | cut -f1)
+    set -e
+
+    # Check if du completely failed (no output)
+    if [[ -z "$size" ]]; then
+      die 1 "Failed to calculate size for '$dir'"
+    fi
+
+    # If du had permission errors, they were shown on stderr
+    # We continue with the partial size that du calculated
+
+    # Write to temporary file with proper format
+    printf "%15d 0 %s\n" "$size" "$dir" >> "$DIRSIZES_TMPDIR"
+  done
+
+  # Sort by size
+  sort -n "$DIRSIZES_TMPDIR" > "${DIRSIZES_TMPDIR}.sorted"
+  mv "${DIRSIZES_TMPDIR}.sorted" "$DIRSIZES_TMPDIR"
+
+  # Second pass: display with human-readable sizes while preserving order
+  while read -r size _ dir; do
+    hr_size=$(numfmt --to=iec --suffix=B --format="%.1f" "$size")
+    printf "%-10s\t%s\n" "$hr_size" "$dir"
+  done < "$DIRSIZES_TMPDIR"
+
+  # Clean up (trap will handle this, but being explicit)
+  rm -f "$DIRSIZES_TMPDIR"
+
+  return 0
+}
+
+main "$@"
 #fin

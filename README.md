@@ -1,130 +1,200 @@
-# Dux - Directory Usage Explorer
+# dir-sizes - Directory Size Analyzer
 
 [![Bash](https://img.shields.io/badge/language-Bash-green.svg)](https://www.gnu.org/software/bash/)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
-A set of efficient Bash utilities for exploring and visualizing directory sizes.
+A fast and efficient Bash utility for analyzing and displaying directory sizes in human-readable format.
 
 ## Overview
 
-The `dux` package consists of two complementary tools:
-
-1. **dux**: A powerful wrapper for the `du` (disk usage) command that provides directory tree traversal, recursive size calculation, and customizable output formatting.
-
-2. **dir-sizes**: A utility that displays directory sizes in human-readable format (KB, MB, GB, etc.) by using direct `du` calls for accurate measurements.
+`dir-sizes` is a streamlined directory size analyzer that calculates the total size of each subdirectory within a specified directory. It presents the results sorted by size in an easy-to-read format, making it simple to identify which directories are consuming the most disk space.
 
 ## Features
 
-- **Fast Directory Traversal**: Efficiently scan directories and calculate sizes
-- **Configurable Recursion**: Control how deep the directory tree is traversed
-- **Human-Readable Output**: Convert raw bytes to human-readable formats
-- **Customizable Display**: Sort by size, use number separators, and more
-- **Error Handling**: Gracefully handle non-existent directories and edge cases
+- **Recursive Size Calculation**: Accurately calculates the total size including all nested subdirectories
+- **Human-Readable Output**: Automatically converts bytes to appropriate units (KB, MB, GB, etc.)
+- **Sorted Results**: Displays directories sorted by size (smallest to largest) for easy analysis
+- **Permission Handling**: Gracefully handles permission errors, showing warnings while continuing execution
+- **Fast Performance**: Efficient implementation using native `du` command
+- **POSIX Compliant**: Follows strict Bash coding standards for reliability
 
 ## Installation
 
 1. Clone this repository:
-   ```
+   ```bash
    git clone https://github.com/username/dux.git
+   cd dux
    ```
 
-2. Make the scripts executable:
-   ```
-   chmod +x dux/dux dux/dir-sizes
+2. Make the script executable:
+   ```bash
+   chmod +x dir-sizes
    ```
 
 3. Optionally, add to your PATH:
+   ```bash
+   # Add to ~/.bashrc or ~/.bash_profile
+   export PATH="$PATH:/path/to/dux"
    ```
-   export PATH="$PATH:$(pwd)/dux"
+
+   Or create a symlink:
+   ```bash
+   sudo ln -s /path/to/dux/dir-sizes /usr/local/bin/dir-sizes
    ```
 
 ## Usage
 
-### dux
-
 Basic usage:
-```
-dux [options] [directory]
-```
-
-Example commands:
 ```bash
-dux                     # Show sizes for current directory
-dux -r 2 /home          # Recurse 2 levels into /home
-dux -s -S /var          # Show sorted sizes with separators
-dux --du -h /usr        # Pass -h to du for human-readable sizes
-```
-
-Options:
-```
--r, --max_recurse depth  Maximum recursion depth
-                         Use -1 for unlimited depth (max 99)
--s, --sep               Use number separator character in size output
--N, --nosep             Do not use number separator (default)
--f, --number_format fmt Set number format to 'sep' or 'nosep'
--R, --dir_root dir      Set the root directory for output
--S, --sort              Sort output by size (ascending)
--V, --version           Display version info
--h, --help              Display help message
---                      Treat all following arguments as directories
---du                    Pass all following arguments to 'du'
-```
-
-### dir-sizes
-
-Basic usage:
-```
 dir-sizes [directory]
 ```
 
-Example commands:
+### Examples
+
 ```bash
-dir-sizes              # Show sizes for current directory subdirectories
-dir-sizes /var         # Show sizes for /var subdirectories
-dir-sizes | sort -h    # Sort by human-readable sizes
+# Analyze current directory
+dir-sizes
+
+# Analyze specific directory
+dir-sizes /var
+
+# Analyze and show only the 10 largest directories
+dir-sizes /usr | tail -10
 ```
 
+### Command-Line Options
+
+```
 Options:
-```
--h, --help    Display help message
-```
+  -h, --help     Display help message and exit
+  -V, --version  Display version information and exit
 
-## Output Format
-
-### dux
-```
-<size> <level> <path> [<symlink-indicator>]
+Arguments:
+  directory      Directory to analyze (defaults to current directory)
 ```
 
-Where:
-- `<size>` is the directory size in bytes
-- `<level>` is the recursion level (0 for top level)
-- `<path>` is the directory path
-- `<symlink-indicator>` is * for symlinks
+### Output Format
 
-### dir-sizes
 ```
 <size>  <path>
 ```
 
 Where:
-- `<size>` is the human-readable size (e.g., 128MB, 1.5GB)
-- `<path>` is the directory path
+- `<size>` is the human-readable size (e.g., 128.5MB, 1.2GB)
+- `<path>` is the absolute or relative path to the directory
 
-## Testing
-
-You can test the functionality with:
-
-```bash
-bash test-dux.sh        # Test all components
-bash test-dux.sh dux    # Test only dux
-bash test-dux.sh dir-sizes # Test only dir-sizes
+Example output:
+```
+56.7KB    	./.git
+102.6KB   	./src
+1.5MB     	./docs
+23.4MB    	./data
 ```
 
-## Author
+## Behavior
 
-Gary Dean, garydean@okusi.id
+### Size Calculation
+- Uses `du -sb` to calculate actual disk usage in bytes
+- Includes all nested subdirectories in the size calculation
+- Provides the total recursive size for each immediate subdirectory
+
+### Permission Handling
+- Permission errors are reported to stderr but don't stop execution
+- Directories that can't be fully read show the size of accessible contents
+
+### Performance Notes
+- Large directories with many files may take time to analyze
+- The script must recursively calculate sizes, which involves reading directory metadata
+- For very large filesystems, consider analyzing specific subdirectories
+
+## Exit Codes
+
+- `0` - Success
+- `1` - General error (invalid directory, complete failure)
+- `22` - Invalid command-line option
+
+## Requirements
+
+- Bash 5.2 or higher
+- GNU coreutils (`du`, `cut`, `sort`, `numfmt`)
+- Standard POSIX utilities
+
+## Technical Details
+
+The script follows strict Bash coding standards:
+- Uses `set -euo pipefail` for robust error handling
+- Implements proper variable scoping with local variables
+- Includes comprehensive error handling and cleanup
+- Follows POSIX-compliant coding patterns
+
+## Comparison with Similar Tools
+
+| Feature | dir-sizes | du | ncdu | dust |
+|---------|-----------|-----|------|------|
+| Human-readable | ✓ | With -h | ✓ | ✓ |
+| Sorted output | ✓ | With sort | ✓ | ✓ |
+| Interactive | ✗ | ✗ | ✓ | ✗ |
+| Recursive totals | ✓ | ✓ | ✓ | ✓ |
+| Dependencies | Minimal | None | ncurses | Rust |
+| Speed | Fast | Fast | Moderate | Fast |
+
+## Troubleshooting
+
+### Permission Denied Errors
+If you see many "Permission denied" errors:
+```bash
+# Run with sudo for system directories
+sudo dir-sizes /var
+
+# Or suppress errors (not recommended, total sizes will be incorrect)
+dir-sizes /var 2>/dev/null
+```
+
+### Slow Performance
+For very large directories:
+```bash
+# Analyze specific subdirectories instead
+dir-sizes /large/dir/specific-subdir
+
+# Use timeout to limit execution time
+timeout 30 dir-sizes /very/large/dir
+```
+
+## Development
+
+### Running Tests
+```bash
+# Basic functionality test
+dir-sizes /tmp
+
+# Test with various directories
+for dir in /tmp /var/log /home; do
+  echo "Testing $dir:"
+  dir-sizes "$dir" 2>/dev/null | head -5
+done
+```
+
+### Code Style
+This project follows the organization's Bash coding standards as defined in BASH-CODING-STYLE.md, including:
+- Proper shebang and error handling setup
+- Consistent variable declarations and scoping
+- Standard utility functions
+- Comprehensive documentation
 
 ## License
 
 This project is licensed under the GNU General Public License v3.0 (GPL-3.0) - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Built on GNU coreutils' robust `du` command
+- Follows best practices from the Bash scripting community
+- Inspired by the need for a simple, fast directory size analyzer
+
+## See Also
+
+- `du(1)` - The underlying disk usage command
+- `ncdu` - Interactive ncurses-based disk usage analyzer
+- `dust` - Modern du replacement written in Rust
+- `duf` - Modern df replacement with better UI
+

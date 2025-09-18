@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# Bash completion for dux and dir-sizes scripts
+
+_dux_completion() {
+  local cur prev opts
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+  # Main options for dux
+  opts="-r --max_recurse -s --sep -N --nosep -f --number_format -R --dir_root -S --sort -V --version -h --help -- --du"
+
+  case "${prev}" in
+    -r|--max_recurse)
+      # Complete with numbers for max recursion depth
+      COMPREPLY=( $(compgen -W "1 2 3 4 5 -1" -- "${cur}") )
+      return 0
+      ;;
+    -f|--number_format)
+      # Complete with format options
+      COMPREPLY=( $(compgen -W "sep nosep" -- "${cur}") )
+      return 0
+      ;;
+    -R|--dir_root)
+      # Complete with directories
+      COMPREPLY=( $(compgen -d -- "${cur}") )
+      return 0
+      ;;
+    --du)
+      # After --du, complete with du options
+      local du_opts="-a -b -c -d -h -H -k -l -L -m -s -S -x --all --bytes --total --max-depth --human-readable --si --kilobytes --count-links --dereference --megabytes --summarize --separate-dirs --one-file-system"
+      COMPREPLY=( $(compgen -W "${du_opts}" -- "${cur}") )
+      return 0
+      ;;
+  esac
+
+  # If current word starts with -, complete with options
+  if [[ ${cur} == -* ]]; then
+    COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+    return 0
+  fi
+
+  # Otherwise complete with directories
+  COMPREPLY=( $(compgen -d -- "${cur}") )
+  return 0
+}
+
+_dir_sizes_completion() {
+  local cur prev
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+  # dir-sizes options
+  if [[ ${cur} == -* ]]; then
+    COMPREPLY=( $(compgen -W "-h --help" -- "${cur}") )
+    return 0
+  fi
+
+  # Complete with directories
+  COMPREPLY=( $(compgen -d -- "${cur}") )
+  return 0
+}
+
+# Register completion functions
+complete -F _dux_completion dux
+complete -F _dir_sizes_completion dir-sizes
+
+#fin
