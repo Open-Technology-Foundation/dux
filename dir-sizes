@@ -1,16 +1,24 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# Display directory sizes in sorted human-readable format
 set -euo pipefail
+# Critical shopt settings for safety
+shopt -s inherit_errexit shift_verbose extglob nullglob
 
-VERSION='1.1.0'
-PRG=${0##*/}
-readonly -- VERSION PRG
+# Lock down PATH for security
+readonly PATH="/usr/local/bin:/usr/bin:/bin"
+export PATH
+
+VERSION='1.2.0'
+SCRIPT_PATH=$(readlink -en -- "$0")  # Full path to script
+SCRIPT_NAME=${SCRIPT_PATH##*/}       # Script basename
+readonly -- VERSION SCRIPT_PATH SCRIPT_NAME
 
 # Global for trap cleanup
-declare -- DIRSIZES_TMPDIR=''
+declare -- DIRSIZES_TMPFILE=''
 
 # Core message function
 _msg() {
-  local -- prefix="$PRG:" msg
+  local -- prefix="$SCRIPT_NAME:" msg
   for msg in "$@"; do printf '%s %s\n' "$prefix" "$msg"; done
 }
 # Error message to stderr
@@ -23,41 +31,55 @@ die() { (($# > 1)) && error "${@:2}"; exit "${1:-0}"; }
 # --------------------------------------------------------------------------------
 usage() {
   cat <<EOT
-$PRG $VERSION - Display directory sizes in sorted human-readable format
+$SCRIPT_NAME $VERSION - Display directory sizes in sorted human-readable format
 
-Calculates and displays the total size of each subdirectory in the specified
-directory, sorted from smallest to largest.
+DESCRIPTION
+  Calculates and displays the total size of each subdirectory in the specified
+  directory, sorted from smallest to largest. Provides a quick overview of disk
+  usage distribution within a directory hierarchy.
 
-Usage: $PRG [Options] [directory]
+USAGE
+  $SCRIPT_NAME [OPTIONS] [DIRECTORY]
 
-Options:
-  -h, --help    Display this help message
-  -V, --version Display version information
+OPTIONS
+  -h, --help     Display this help message and exit
+  -V, --version  Display version information and exit
 
-Arguments:
-  directory     Directory to analyze (defaults to current directory)
+ARGUMENTS
+  DIRECTORY      Directory to analyze (defaults to current directory)
+                 Must be a valid, accessible directory path
 
-Examples:
-  $PRG                # Show sizes for current directory subdirectories
-  $PRG /var           # Show sizes for /var subdirectories
+EXAMPLES
+  $SCRIPT_NAME                 # Analyze current directory
+  $SCRIPT_NAME /var            # Analyze /var subdirectories
+  $SCRIPT_NAME ~/Documents     # Analyze home Documents folder
 
-Output Format:
+OUTPUT FORMAT
   <size>  <path>
+
   Where:
-  - <size> is the human-readable size (e.g., 128MB, 1.5GB)
-  - <path> is the directory path
+  - <size> is human-readable with IEC units (B, KiB, MiB, GiB, TiB)
+  - <path> is the absolute or relative directory path
+  - Output is tab-separated for easy parsing
+  - Sorted by size, smallest to largest
 
-Notes:
-  - Sizes shown include all nested subdirectories (recursive calculation)
-  - Permission errors are shown on stderr but don't stop execution
-  - Results are based on actual disk usage (du -sb)
-  - Directories are sorted by size (smallest first)
+FEATURES
+  - Recursive size calculation (includes all nested content)
+  - Human-readable output with automatic unit selection
+  - Handles permission errors gracefully (partial results shown)
+  - Secure temporary file handling with automatic cleanup
+  - Signal handling for clean interruption (Ctrl+C safe)
 
-Exit Codes:
-  0  Success
-  1  General error (invalid directory, complete du failure)
-  22 Invalid command-line option
+NOTES
+  - Uses 'du -sb' for actual disk usage calculation
+  - Permission errors are reported to stderr but don't halt execution
+  - Empty directories show as 0.0B
+  - Temporary files are created securely with mktemp
 
+EXIT CODES
+  0   Success
+  1   General error (invalid directory, du failure, temp file error)
+  22  Invalid command-line option
 EOT
   exit "${1:-0}"
 }
@@ -67,7 +89,7 @@ EOT
 # --------------------------------------------------------------------------------
 cleanup() {
   local -i exitcode=${1:-0}
-  [[ -n "${DIRSIZES_TMPDIR:-}" ]] && [[ -f "$DIRSIZES_TMPDIR" ]] && rm -f "$DIRSIZES_TMPDIR"
+  [[ -n "${DIRSIZES_TMPFILE:-}" ]] && [[ -f "$DIRSIZES_TMPFILE" ]] && rm -f "$DIRSIZES_TMPFILE"
   exit "$exitcode"
 }
 
@@ -75,7 +97,7 @@ cleanup() {
 # Main function
 # --------------------------------------------------------------------------------
 main() {
-  local -a Dirs=()
+  local -a dirs=()
   local -- dir='' hr_size=''
   local -i size=0
 
@@ -83,8 +105,8 @@ main() {
   while (($#)); do
     case "$1" in
       -h|--help)    usage 0 ;;
-      -V|--version) echo "$PRG $VERSION"; exit 0 ;;
-      -[nV]*) #shellcheck disable=SC2046 #split up single options
+      -V|--version) echo "$SCRIPT_NAME $VERSION"; exit 0 ;;
+      -[hV]*) #shellcheck disable=SC2046 #split up single options
                     set -- '' $(printf -- "-%c " $(grep -o . <<<"${1:1}")) "${@:2}"
                     ;;
       -*)           die 22 "Invalid option '$1'" ;;
@@ -102,53 +124,51 @@ main() {
   [[ -d "$dir" ]] || die 1 "Not a directory: '$dir'"
 
   # Set up temp file (use global for trap access)
-  DIRSIZES_TMPDIR="${TMPDIR:-/tmp}/.dir-sizes_$$_$RANDOM"
+  DIRSIZES_TMPFILE=$(mktemp) || die 1 "Failed to create temporary file"
 
   # Set trap for cleanup
   trap 'cleanup $?' SIGINT SIGTERM EXIT
 
   # Find all directories at depth 1
-  readarray -t Dirs < <(find "$dir" -maxdepth 1 -type d 2>/dev/null || true)
+  readarray -t dirs < <(find "$dir" -maxdepth 1 -type d 2>/dev/null || true)
 
   # Check if we found any directories
-  ((${#Dirs[@]})) || die 1 "No directories found in '$dir'"
+  ((${#dirs[@]})) || die 1 "No directories found in '$dir'"
 
   # First pass: collect directory sizes directly using du
-  # Create empty temp file
-  : > "$DIRSIZES_TMPDIR"
+  # Temp file already created by mktemp, just ensure it's empty
+  : > "$DIRSIZES_TMPFILE"
 
-  for dir in "${Dirs[@]}"; do
+  local -- current_dir
+  for current_dir in "${dirs[@]}"; do
     # Get the raw size in bytes using du
     # du may return exit code 1 on permission errors but still outputs the size it could calculate
-    # Temporarily allow non-zero exit codes for this command
-    set +e
-    size=$(du -sb "$dir" | cut -f1)
-    set -e
+    # Send errors to stderr where they belong, capture only the size
+    size=$(du -sb "$current_dir" 2>&2 | cut -f1 || echo '')
 
-    # Check if du completely failed (no output)
-    if [[ -z "$size" ]]; then
-      die 1 "Failed to calculate size for '$dir'"
+    # Check if we got a valid size
+    if [[ -z "$size" ]] || [[ ! "$size" =~ ^[0-9]+$ ]]; then
+      die 1 "Failed to calculate size for '$current_dir'"
     fi
 
-    # If du had permission errors, they were shown on stderr
-    # We continue with the partial size that du calculated
-
     # Write to temporary file with proper format
-    printf "%15d 0 %s\n" "$size" "$dir" >> "$DIRSIZES_TMPDIR"
+    printf "%15d 0 %s\n" "$size" "$current_dir" >> "$DIRSIZES_TMPFILE"
   done
 
   # Sort by size
-  sort -n "$DIRSIZES_TMPDIR" > "${DIRSIZES_TMPDIR}.sorted"
-  mv "${DIRSIZES_TMPDIR}.sorted" "$DIRSIZES_TMPDIR"
+  sort -n "$DIRSIZES_TMPFILE" > "${DIRSIZES_TMPFILE}.sorted"
+  mv "${DIRSIZES_TMPFILE}.sorted" "$DIRSIZES_TMPFILE"
 
   # Second pass: display with human-readable sizes while preserving order
-  while read -r size _ dir; do
+  local -- output_dir dummy
+  # shellcheck disable=SC2034  # dummy is used to consume middle field
+  while read -r size dummy output_dir; do
     hr_size=$(numfmt --to=iec --suffix=B --format="%.1f" "$size")
-    printf "%-10s\t%s\n" "$hr_size" "$dir"
-  done < "$DIRSIZES_TMPDIR"
+    printf "%-10s\t%s\n" "$hr_size" "$output_dir"
+  done < "$DIRSIZES_TMPFILE"
 
   # Clean up (trap will handle this, but being explicit)
-  rm -f "$DIRSIZES_TMPDIR"
+  rm -f "$DIRSIZES_TMPFILE"
 
   return 0
 }

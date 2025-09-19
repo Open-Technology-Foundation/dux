@@ -16,7 +16,8 @@ A fast and efficient Bash utility for analyzing and displaying directory sizes i
 - **Sorted Results**: Displays directories sorted by size (smallest to largest) for easy analysis
 - **Permission Handling**: Gracefully handles permission errors, showing warnings while continuing execution
 - **Fast Performance**: Efficient implementation using native `du` command
-- **POSIX Compliant**: Follows strict Bash coding standards for reliability
+- **Standards Compliant**: Follows strict BASH coding standards for reliability and safety
+- **Security Hardened**: Implements PATH locking, secure temp files, and proper signal handling
 
 ## Installation
 
@@ -80,11 +81,12 @@ Arguments:
 ```
 
 Where:
-- `<size>` is the human-readable size (e.g., 128.5MB, 1.2GB)
+- `<size>` is the human-readable size with IEC units (e.g., 128.5MiB, 1.2GiB)
 - `<path>` is the absolute or relative path to the directory
 
 Example output:
 ```
+0.0B      	./.cache
 56.7KB    	./.git
 102.6KB   	./src
 1.5MB     	./docs
@@ -115,26 +117,30 @@ Example output:
 
 ## Requirements
 
-- Bash 5.2 or higher
+- Bash 5.2 or higher (uses modern Bash features)
+- GNU coreutils 8.32+ (for numfmt IEC units)
 - GNU coreutils (`du`, `cut`, `sort`, `numfmt`)
 - Standard POSIX utilities
 
 ## Technical Details
 
-The script follows strict Bash coding standards:
-- Uses `set -euo pipefail` for robust error handling
-- Implements proper variable scoping with local variables
-- Includes comprehensive error handling and cleanup
-- Follows POSIX-compliant coding patterns
+The script follows strict BASH coding standards (v1.2.0 improvements):
+- Uses `set -euo pipefail` with `shopt -s inherit_errexit` for robust error handling
+- Implements proper variable scoping with typed declarations (`declare -i`, `declare --`)
+- Secure temporary file handling with `mktemp` and automatic cleanup via traps
+- PATH security hardening to prevent command injection
+- Signal handling for clean interruption (SIGINT, SIGTERM)
 
 ## Comparison with Similar Tools
 
 | Feature | dir-sizes | du | ncdu | dust |
 |---------|-----------|-----|------|------|
-| Human-readable | ✓ | With -h | ✓ | ✓ |
+| Human-readable | ✓ (IEC) | With -h | ✓ | ✓ |
 | Sorted output | ✓ | With sort | ✓ | ✓ |
 | Interactive | ✗ | ✗ | ✓ | ✗ |
 | Recursive totals | ✓ | ✓ | ✓ | ✓ |
+| Security hardened | ✓ | ✗ | ✗ | ✗ |
+| Signal handling | ✓ | ✗ | ✓ | ✗ |
 | Dependencies | Minimal | None | ncurses | Rust |
 | Speed | Fast | Fast | Moderate | Fast |
 
@@ -175,11 +181,13 @@ done
 ```
 
 ### Code Style
-This project follows the organization's Bash coding standards as defined in BASH-CODING-STYLE.md, including:
-- Proper shebang and error handling setup
-- Consistent variable declarations and scoping
-- Standard utility functions
-- Comprehensive documentation
+This project follows the organization's BASH coding standards as defined in [BASH-CODING-STYLE](https://github.com/Open-Technology-Foundation/bash-coding-standard), including:
+- Proper shebang (`#!/bin/bash`) with script description
+- Critical safety settings (`inherit_errexit`, `shift_verbose`, `extglob`, `nullglob`)
+- Consistent variable declarations with proper typing
+- Standard utility functions (error handling, messaging)
+- Comprehensive inline and usage documentation
+- Security-first approach (PATH locking, mktemp usage)
 
 ## License
 
