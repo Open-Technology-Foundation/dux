@@ -107,7 +107,7 @@ main() {
                     set -- '' $(printf -- "-%c " $(grep -o . <<<"${1:1}")) "${@:2}"
                     ;;
       -*)           die 22 "Invalid option ${1@Q}" ;;
-      *)            [[ -n "$dir" ]] && die 1 'Too many arguments'
+      *)            [[ -n "$dir" ]] && die 2 "Too many arguments ${1@Q}"
                     dir="$1"
                     ;;
     esac
