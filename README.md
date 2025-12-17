@@ -39,10 +39,15 @@ echo "export PATH=\"\$PATH:$(pwd)\"" >> ~/.bashrc
 ## Usage
 
 ```bash
-dux [directory]    # Analyze directory (defaults to current)
-dux -h             # Show help
-dux -V             # Show version
+dux [OPTIONS] [DIRECTORY]
 ```
+
+| Option | Description |
+|--------|-------------|
+| `-L` | Follow symlinks |
+| `-q, --quiet` | Suppress permission errors |
+| `-h, --help` | Show help |
+| `-V, --version` | Show version |
 
 ### Common Tasks
 
@@ -69,6 +74,11 @@ dux . | grep -v node_modules   # Exclude node_modules
 dux /home | tee sizes.txt      # Save output to file
 ```
 
+**Follow symlinks:**
+```bash
+dux -L /opt/myapp              # Include symlinked directories
+```
+
 ## Output Format
 
 ```
@@ -85,7 +95,7 @@ Permission errors appear on stderr but don't stop execution:
 
 ```bash
 dux /var                   # Shows errors inline
-dux /var 2>/dev/null       # Suppress errors (sizes may be incomplete)
+dux -q /var                # Suppress errors with --quiet
 sudo dux /var              # Full access to all directories
 ```
 
