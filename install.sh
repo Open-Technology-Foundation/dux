@@ -23,7 +23,7 @@ msg()   { printf '%b\n' "$*"; }
 ok()    { msg "${GREEN}✓${NC} $*"; }
 warn()  { msg "${YELLOW}▲${NC} $*"; }
 error() { msg "${RED}✗${NC} $*" >&2; }
-die()   { error "${*:2}"; exit ${1:-1}; }
+die()   { error "${*:2}"; exit "${1:-1}"; }
 
 show_help() {
   cat <<EOF
@@ -125,9 +125,13 @@ do_install() {
     cp "$SRC_MAN" "$DEST_MAN/dux.1"
     ok "Installed: $DEST_MAN/dux.1"
 
-    # Update man database if root
-    if ((EUID == 0)) && command -v mandb &>/dev/null; then
-      mandb -q 2>/dev/null || true
+    # Update man database
+    if command -v mandb &>/dev/null; then
+      if ((EUID == 0)); then
+        mandb -q 2>/dev/null || true
+      else
+        mandb -q "$DEST_MAN/.." 2>/dev/null || true
+      fi
       ok "Updated man database"
     fi
   fi
