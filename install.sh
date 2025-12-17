@@ -23,7 +23,7 @@ msg()   { printf '%b\n' "$*"; }
 ok()    { msg "${GREEN}✓${NC} $*"; }
 warn()  { msg "${YELLOW}▲${NC} $*"; }
 error() { msg "${RED}✗${NC} $*" >&2; }
-die()   { error "$*"; exit 1; }
+die()   { error "${*:2}"; exit ${1:-1}; }
 
 show_help() {
   cat <<EOF
@@ -69,10 +69,10 @@ set_destinations() {
 
 check_sources() {
   local -i errors=0
-  [[ -f "$SRC_BIN" ]]  || { error "Missing: $SRC_BIN"; ((errors++)); }
-  [[ -f "$SRC_COMP" ]] || { error "Missing: $SRC_COMP"; ((errors++)); }
-  [[ -f "$SRC_MAN" ]]  || { error "Missing: $SRC_MAN"; ((errors++)); }
-  ((errors == 0)) || die "Source files not found. Run from the dux directory."
+  [[ -f "$SRC_BIN" ]]  || { error "Missing: $SRC_BIN"; errors+=1; }
+  [[ -f "$SRC_COMP" ]] || { error "Missing: $SRC_COMP"; errors+=1; }
+  [[ -f "$SRC_MAN" ]]  || { error "Missing: $SRC_MAN"; errors+=1; }
+  ((errors == 0)) || die 2 "Source files not found. Run from the dux directory."
 }
 
 do_install() {
@@ -191,7 +191,7 @@ main() {
       -h|--help)      show_help; exit 0 ;;
       -u|--uninstall) uninstall=1 ;;
       -n|--dry-run)   dry_run=1 ;;
-      *)              die "Unknown option: $1" ;;
+      *)              die 22 "Unknown option ${1@Q}" ;;
     esac
     shift
   done
