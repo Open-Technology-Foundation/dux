@@ -25,12 +25,14 @@ $ dux /var
 
 ## Installation
 
+**One-liner (user install):**
 ```bash
-git clone https://github.com/Open-Technology-Foundation/dux.git
-cd dux
-./install.sh           # User install (~/.local/bin)
-# or
-sudo ./install.sh      # System install (/usr/local/bin)
+git clone https://github.com/Open-Technology-Foundation/dux.git && cd dux && ./install.sh
+```
+
+**One-liner (system-wide):**
+```bash
+git clone https://github.com/Open-Technology-Foundation/dux.git && cd dux && sudo ./install.sh
 ```
 
 The installer sets up:
