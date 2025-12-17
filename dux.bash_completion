@@ -1,0 +1,35 @@
+#!/bin/bash
+# Bash completion for dux (dir-sizes)
+
+_dux() {
+  local cur prev opts
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+  # All available options
+  opts="-L -q --quiet -h --help -V --version"
+
+  # If previous word is the command itself or an option that takes no argument
+  case "$prev" in
+    dux|dir-sizes|-L|-q|--quiet|-h|--help|-V|--version)
+      if [[ "$cur" == -* ]]; then
+        # Complete with options
+        mapfile -t COMPREPLY < <(compgen -W "$opts" -- "$cur")
+      else
+        # Complete with directories only
+        mapfile -t COMPREPLY < <(compgen -d -- "$cur")
+      fi
+      return 0
+      ;;
+  esac
+
+  # Default completion for directories
+  mapfile -t COMPREPLY < <(compgen -d -- "$cur")
+}
+
+# Register completion function for both names
+complete -F _dux dux
+complete -F _dux dir-sizes
+
+#fin
