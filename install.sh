@@ -115,6 +115,7 @@ do_install() {
     msg "Would install: $DEST_COMP/dux"
   else
     cp "$SRC_COMP" "$DEST_COMP/dux"
+    chmod 644 "$DEST_COMP/dux"
     ok "Installed: $DEST_COMP/dux"
   fi
 
@@ -123,6 +124,7 @@ do_install() {
     msg "Would install: $DEST_MAN/dux.1"
   else
     cp "$SRC_MAN" "$DEST_MAN/dux.1"
+    chmod 644 "$DEST_MAN/dux.1"
     ok "Installed: $DEST_MAN/dux.1"
 
     # Update man database
