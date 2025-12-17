@@ -28,13 +28,17 @@ $ dux /var
 ```bash
 git clone https://github.com/Open-Technology-Foundation/dux.git
 cd dux
-chmod +x dir-sizes
-
-# Add to PATH (choose one):
-sudo ln -s "$(pwd)/dir-sizes" /usr/local/bin/dux
+./install.sh           # User install (~/.local/bin)
 # or
-echo "export PATH=\"\$PATH:$(pwd)\"" >> ~/.bashrc
+sudo ./install.sh      # System install (/usr/local/bin)
 ```
+
+The installer sets up:
+- `dux` command (symlink to `dir-sizes`)
+- Bash completion
+- Man page (`man dux`)
+
+To uninstall: `./install.sh --uninstall`
 
 ## Usage
 
