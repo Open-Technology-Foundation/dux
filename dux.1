@@ -1,0 +1,139 @@
+.\" dux - Quick directory size overview
+.\" Man page for dux (dir-sizes)
+.TH DUX 1 "December 2025" "dux 1.4.0" "User Commands"
+.SH NAME
+dux \- quick directory size overview
+.SH SYNOPSIS
+.B dux
+[\fIOPTIONS\fR] [\fIDIRECTORY\fR]
+.SH DESCRIPTION
+.B dux
+displays the size of each subdirectory within the specified directory,
+sorted from smallest to largest. It provides a quick overview of disk
+space distribution, making it easy to identify which directories are
+consuming the most space.
+.PP
+The largest directories appear at the bottom of the output for easy
+viewing in a terminal.
+.SH OPTIONS
+.TP
+.B \-L
+Follow symbolic links when finding directories. Without this option,
+symlinked directories may not be traversed.
+.TP
+.BR \-q ", " \-\-quiet
+Suppress permission error messages. Errors from \fBdu\fR(1) are
+redirected to /dev/null instead of stderr. Useful when scanning
+directories with mixed permissions.
+.TP
+.BR \-h ", " \-\-help
+Display help message and exit.
+.TP
+.BR \-V ", " \-\-version
+Display version information and exit.
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Error (invalid directory, read failure, temp file error).
+.TP
+.B 2
+Too many arguments provided.
+.TP
+.B 22
+Invalid command-line option.
+.SH OUTPUT FORMAT
+Output is tab-separated with two columns:
+.PP
+.RS
+\fIsize\fR	\fIpath\fR
+.RE
+.PP
+Sizes use IEC units (B, KiB, MiB, GiB, TiB) with one decimal place.
+The output is sorted by size, smallest to largest.
+.SH EXAMPLES
+Analyze the current directory:
+.PP
+.RS
+.B dux
+.RE
+.PP
+Check /var subdirectories:
+.PP
+.RS
+.B dux /var
+.RE
+.PP
+Show the 5 largest directories in home:
+.PP
+.RS
+.B dux ~ | tail -5
+.RE
+.PP
+Full system scan (requires root):
+.PP
+.RS
+.B sudo dux /
+.RE
+.PP
+Suppress permission errors:
+.PP
+.RS
+.B dux -q /var
+.RE
+.PP
+Follow symlinks:
+.PP
+.RS
+.B dux -L /opt/myapp
+.RE
+.PP
+Combine options:
+.PP
+.RS
+.B dux -Lq /some/path
+.RE
+.SH FILES
+.B dux
+creates a temporary file using \fBmktemp\fR(1) for sorting purposes.
+The file is automatically cleaned up on exit or interrupt.
+.SH ENVIRONMENT
+.B dux
+sets a restricted PATH for security:
+.PP
+.RS
+/usr/local/bin:/usr/bin:/bin
+.RE
+.SH NOTES
+.B dux
+uses \fBdu \-sb\fR to calculate actual disk usage in bytes for each
+subdirectory. Permission errors are reported to stderr (unless \fB-q\fR
+is used) but do not stop execution; accessible content is still measured
+and displayed.
+.PP
+Empty directories show as 0.0B (just directory metadata).
+.PP
+The script handles SIGINT and SIGTERM signals gracefully, cleaning up
+temporary files before exit.
+.SH LIMITATIONS
+Without the \fB-L\fR flag, symbolic links used as the starting directory
+may not work correctly due to how \fBfind\fR(1) handles symlinked paths.
+.SH SEE ALSO
+.BR du (1),
+.BR df (1),
+.BR ncdu (1),
+.BR find (1)
+.SH BUGS
+Report bugs at: https://github.com/Open-Technology-Foundation/dux/issues
+.SH AUTHOR
+Open Technology Foundation
+.br
+https://github.com/Open-Technology-Foundation
+.SH COPYRIGHT
+Copyright \(co 2025 Open Technology Foundation.
+License GPLv3+: GNU GPL version 3 or later.
+.br
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
