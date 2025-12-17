@@ -5,6 +5,18 @@ All notable changes to dux are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2025-12-18
+
+### Changed
+- Shebangs updated to `#!/usr/bin/env bash` for BCS compliance and portability
+- Added `shift_verbose` shopt to install.sh for better error detection
+
+### Fixed
+- File permissions for root installs (chmod 644 for manpage and completion)
+- Manpage accessibility for user installs (run mandb after install)
+- ShellCheck warnings in test files (SC2155, SC2076, SC2034)
+- Shebang test pattern to accept both `#!/bin/bash` and `#!/usr/bin/env bash`
+
 ## [1.4.0] - 2025-12-18
 
 ### Added
@@ -52,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for relative and absolute paths
 - Permission error handling (continues with accessible content)
 
+[1.4.1]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/Open-Technology-Foundation/dux/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/Open-Technology-Foundation/dux/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/Open-Technology-Foundation/dux/compare/v1.0.0...v1.2.1
