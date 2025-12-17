@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # install.sh - Install dux utility, completion, and manpage
 set -euo pipefail
-shopt -s inherit_errexit
+shopt -s inherit_errexit shift_verbose
 
 declare -r VERSION='1.0.0'
 declare -- SCRIPT_DIR
