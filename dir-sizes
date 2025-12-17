@@ -1,5 +1,5 @@
 #!/bin/bash
-# Display directory sizes in sorted human-readable format
+# dux - Quick directory size overview (sorted smallest to largest)
 set -euo pipefail
 shopt -s inherit_errexit shift_verbose extglob nullglob
 
@@ -7,11 +7,14 @@ shopt -s inherit_errexit shift_verbose extglob nullglob
 readonly PATH="/usr/local/bin:/usr/bin:/bin"
 export PATH
 
-declare -r VERSION='1.2.1'
+declare -r VERSION='1.4.0'
 declare -r SCRIPT_NAME=${0##*/} # Script basename
 
 # Global for trap cleanup
 declare -- DIRSIZES_TMPFILE=''
+
+# Runtime flags
+declare -i FOLLOW_SYMLINKS=0 VERBOSE=1
 
 # Core message function
 _msg() {
@@ -28,55 +31,40 @@ die() { (($#>1)) && error "${@:2}"; exit "${1:-0}"; }
 # --------------------------------------------------------------------------------
 show_help() {
   cat <<EOT
-$SCRIPT_NAME $VERSION - Display directory sizes in sorted human-readable format
+$SCRIPT_NAME $VERSION - Quick directory size overview
 
-DESCRIPTION
-  Calculates and displays the total size of each subdirectory in the specified
-  directory, sorted from smallest to largest. Provides a quick overview of disk
-  show_help distribution within a directory hierarchy.
+Find out where your disk space is going. Shows the size of each subdirectory,
+sorted smallest to largest (largest at bottom for easy viewing).
 
 USAGE
   $SCRIPT_NAME [OPTIONS] [DIRECTORY]
+  $SCRIPT_NAME -h | -V
 
 OPTIONS
-  -h, --help     Display this help message and exit
-  -V, --version  Display version information and exit
-
-ARGUMENTS
-  DIRECTORY      Directory to analyze (defaults to current directory)
-                 Must be a valid, accessible directory path
+  -L             Follow symlinks
+  -q, --quiet    Suppress permission errors
+  -h, --help     Show this help
+  -V, --version  Show version
 
 EXAMPLES
-  $SCRIPT_NAME                 # Analyze current directory
-  $SCRIPT_NAME /var            # Analyze /var subdirectories
-  $SCRIPT_NAME ~/Documents     # Analyze home Documents folder
+  $SCRIPT_NAME              # Current directory
+  $SCRIPT_NAME /var         # Check /var subdirectories
+  $SCRIPT_NAME ~ | tail -5  # 5 largest in home directory
+  sudo $SCRIPT_NAME /       # Full system (needs root)
 
-OUTPUT FORMAT
-  <size>  <path>
+OUTPUT
+  <size>    <path>
 
-  Where:
-  - <size> is human-readable with IEC units (B, KiB, MiB, GiB, TiB)
-  - <path> is the absolute or relative directory path
-  - Output is tab-separated for easy parsing
-  - Sorted by size, smallest to largest
-
-FEATURES
-  - Recursive size calculation (includes all nested content)
-  - Human-readable output with automatic unit selection
-  - Handles permission errors gracefully (partial results shown)
-  - Secure temporary file handling with automatic cleanup
-  - Signal handling for clean interruption (Ctrl+C safe)
-
-NOTES
-  - Uses 'du -sb' for actual disk show_help calculation
-  - Permission errors are reported to stderr but don't halt execution
-  - Empty directories show as 0.0B
-  - Temporary files are created securely with mktemp
+  Sizes use IEC units (KiB, MiB, GiB). Tab-separated for easy parsing.
+  Permission errors go to stderr; accessible content is still shown.
 
 EXIT CODES
   0   Success
-  1   General error (invalid directory, du failure, temp file error)
-  22  Invalid command-line option
+  1   Error (invalid directory, read failure)
+  2   Too many arguments
+  22  Invalid option
+
+More info: https://github.com/Open-Technology-Foundation/dux
 EOT
 }
 
@@ -103,8 +91,10 @@ main() {
     case $1 in
       -h|--help)    show_help; exit 0 ;;
       -V|--version) echo "$SCRIPT_NAME $VERSION"; exit 0 ;;
-      -[hV]*) #shellcheck disable=SC2046 #split up single options
-                    set -- '' $(printf -- "-%c " $(grep -o . <<<"${1:1}")) "${@:2}"
+      -L)           FOLLOW_SYMLINKS=1 ;;
+      -q|--quiet)   VERBOSE=0 ;;
+      -[hVLq]*) #shellcheck disable=SC2046 #split up single options
+                    set -- '' $(printf -- '-%c ' $(grep -o . <<<"${1:1}")) "${@:2}"
                     ;;
       -*)           die 22 "Invalid option ${1@Q}" ;;
       *)            [[ -n "$dir" ]] && die 2 "Too many arguments ${1@Q}"
@@ -127,7 +117,9 @@ main() {
   trap 'cleanup $?' SIGINT SIGTERM EXIT
 
   # Find all directories at depth 1
-  readarray -t dirs < <(find "$dir" -maxdepth 1 -type d 2>/dev/null || true)
+  local -a find_opts=()
+  ((FOLLOW_SYMLINKS)) && find_opts+=(-L)
+  readarray -t dirs < <(find "${find_opts[@]}" "$dir" -maxdepth 1 -type d 2>/dev/null || true)
 
   # Check if we found any directories
   ((${#dirs[@]})) || die 1 "No directories found in ${dir@Q}"
@@ -140,8 +132,11 @@ main() {
   for current_dir in "${dirs[@]}"; do
     # Get the raw size in bytes using du
     # du may return exit code 1 on permission errors but still outputs the size it could calculate
-    # Send errors to stderr where they belong, capture only the size
-    size=$(du -sb "$current_dir" 2>&2 | cut -f1 || echo '')
+    if ((VERBOSE)); then
+      size=$(du -sb "$current_dir" 2>&2 | cut -f1 || echo '')
+    else
+      size=$(du -sb "$current_dir" 2>/dev/null | cut -f1 || echo '')
+    fi
 
     # Check if we got a valid size
     if [[ -z "$size" ]] || [[ ! "$size" =~ ^[0-9]+$ ]]; then
