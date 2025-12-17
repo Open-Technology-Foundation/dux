@@ -178,7 +178,9 @@ do_uninstall() {
   fi
 
   msg "\n${GREEN}Uninstallation complete!${NC}"
-  ((dry_run)) && msg "(dry-run mode - no changes made)"
+  if ((dry_run)); then
+    msg "(dry-run mode - no changes made)"
+  fi
 }
 
 main() {
