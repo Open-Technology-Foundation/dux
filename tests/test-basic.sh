@@ -3,13 +3,19 @@
 set -uo pipefail
 shopt -s inherit_errexit
 
-declare -r SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+declare -- SCRIPT_DIR
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+declare -r SCRIPT_DIR
+
+# shellcheck source=test-helpers.sh
 source "$SCRIPT_DIR/test-helpers.sh"
 
 declare -r DUX="${1:-$SCRIPT_DIR/../dir-sizes}"
 
 # Create temp directory for tests
-declare -r TEST_DIR=$(mktemp -d "/tmp/dux-test-basic-XXXXXX")
+declare -- TEST_DIR
+TEST_DIR=$(mktemp -d "/tmp/dux-test-basic-XXXXXX")
+declare -r TEST_DIR
 trap 'rm -rf "$TEST_DIR"' EXIT
 
 test_section "Basic Functionality"

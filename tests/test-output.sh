@@ -3,13 +3,19 @@
 set -uo pipefail
 shopt -s inherit_errexit
 
-declare -r SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+declare -- SCRIPT_DIR
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+declare -r SCRIPT_DIR
+
+# shellcheck source=test-helpers.sh
 source "$SCRIPT_DIR/test-helpers.sh"
 
 declare -r DUX="${1:-$SCRIPT_DIR/../dir-sizes}"
 
 # Create temp directory for tests
-declare -r TEST_DIR=$(mktemp -d "/tmp/dux-test-output-XXXXXX")
+declare -- TEST_DIR
+TEST_DIR=$(mktemp -d "/tmp/dux-test-output-XXXXXX")
+declare -r TEST_DIR
 trap 'rm -rf "$TEST_DIR"' EXIT
 
 # Setup test fixtures with known sizes
@@ -26,7 +32,7 @@ dd if=/dev/zero of="$TEST_DIR/large-subdir/large.bin" bs=1024 count=1000 2>/dev/
 test_section "Output Format"
 
 # Get output for testing
-output=$("$DUX" "$TEST_DIR" 2>&1); ec=$?
+output=$("$DUX" "$TEST_DIR" 2>&1)
 
 # Test: Output contains size column
 assert_regex_match "$output" "[0-9]" "Output contains numeric size"
@@ -55,7 +61,7 @@ lines=$(echo "$output" | grep "$TEST_DIR/")
 first_line=$(echo "$lines" | head -1)
 last_line=$(echo "$lines" | tail -1)
 
-if [[ "$first_line" =~ empty ]] || [[ "$first_line" =~ "0.0B" ]] || [[ "$first_line" =~ "4.0K" ]]; then
+if [[ "$first_line" =~ empty ]] || [[ "$first_line" =~ 0\.0B ]] || [[ "$first_line" =~ 4\.0K ]]; then
   pass "Output sorted - smallest first"
 else
   warn "Output sorting may vary (first: $first_line)"
@@ -98,7 +104,7 @@ line_count=$(echo "$output" | wc -l)
 assert_greater_than "$line_count" 3 "At least 4 lines of output"
 
 # Test: Relative paths preserved
-rel_output=$(cd "$TEST_DIR" && "$DUX" . 2>&1); ec=$?
+rel_output=$(cd "$TEST_DIR" && "$DUX" . 2>&1)
 if echo "$rel_output" | grep -q "^\./"; then
   pass "Relative paths preserved in output"
 elif echo "$rel_output" | grep -q "^\.$"; then
@@ -108,7 +114,7 @@ else
 fi
 
 # Test: Absolute paths preserved
-abs_output=$("$DUX" "$TEST_DIR" 2>&1); ec=$?
+abs_output=$("$DUX" "$TEST_DIR" 2>&1)
 assert_contains "$abs_output" "$TEST_DIR" "Absolute paths preserved in output"
 
 print_summary

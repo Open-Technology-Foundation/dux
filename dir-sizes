@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # dux - Quick directory size overview (sorted smallest to largest)
 set -euo pipefail
 shopt -s inherit_errexit shift_verbose extglob nullglob

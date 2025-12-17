@@ -166,7 +166,7 @@ assert_dir_exists "$TEST_COMP" "Completion directory created"
 assert_dir_exists "$TEST_MAN" "Manpage directory created"
 
 # Test: Binary content is correct (spot check)
-if head -1 "$TEST_BIN/dir-sizes" | grep -q "#!/bin/bash"; then
+if head -1 "$TEST_BIN/dir-sizes" | grep -qE "^#!.*bash"; then
   pass "dir-sizes has correct shebang"
 else
   fail "dir-sizes missing shebang"

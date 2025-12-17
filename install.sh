@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # install.sh - Install dux utility, completion, and manpage
 set -euo pipefail
 shopt -s inherit_errexit

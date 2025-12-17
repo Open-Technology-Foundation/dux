@@ -3,7 +3,10 @@
 set -euo pipefail
 shopt -s inherit_errexit
 
-declare -r SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+declare -- SCRIPT_DIR
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+declare -r SCRIPT_DIR
+
 declare -r DUX="$SCRIPT_DIR/../dir-sizes"
 
 declare -gi TOTAL_PASSED=0 TOTAL_FAILED=0 TOTAL_RUN=0
