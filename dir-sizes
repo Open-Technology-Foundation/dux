@@ -7,7 +7,7 @@ shopt -s inherit_errexit shift_verbose extglob nullglob
 readonly PATH="/usr/local/bin:/usr/bin:/bin"
 export PATH
 
-declare -r VERSION='1.4.0'
+declare -r VERSION=1.4.0
 declare -r SCRIPT_NAME=${0##*/} # Script basename
 
 # Global for trap cleanup
@@ -24,7 +24,7 @@ _msg() {
 # Error message to stderr
 error() { >&2 _msg "$@"; }
 # Exit with error
-die() { (($#>1)) && error "${@:2}"; exit "${1:-0}"; }
+die() { (($#>1)) && error "${@:2}" ||:; exit "${1:-0}"; }
 
 # --------------------------------------------------------------------------------
 # Usage documentation
@@ -148,8 +148,7 @@ main() {
   done
 
   # Sort by size
-  sort -n "$DIRSIZES_TMPFILE" > "$DIRSIZES_TMPFILE".sorted
-  mv "$DIRSIZES_TMPFILE".sorted "$DIRSIZES_TMPFILE"
+  sort -n "$DIRSIZES_TMPFILE" -o "$DIRSIZES_TMPFILE"
 
   # Second pass: display with human-readable sizes while preserving order
   local -- output_dir
