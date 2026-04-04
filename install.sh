@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # install.sh - Install dux utility, completion, and manpage
 set -euo pipefail
-shopt -s inherit_errexit shift_verbose
+shopt -s inherit_errexit shift_verbose extglob nullglob
+
+# Lock down PATH for security
+declare -rx PATH='/usr/local/bin:/usr/bin:/bin'
 
 declare -r VERSION='1.0.0'
+declare -r SCRIPT_NAME=${0##*/}
 declare -- SCRIPT_DIR
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 declare -r SCRIPT_DIR
@@ -16,8 +20,12 @@ declare -r SRC_MAN="$SCRIPT_DIR/dux.1"
 # Destination directories (set based on root/user)
 declare -- DEST_BIN='' DEST_COMP='' DEST_MAN=''
 
-# Colors for output
-declare -r RED='\033[0;31m' GREEN='\033[0;32m' YELLOW='\033[0;33m' NC='\033[0m'
+# Colors for output (TTY-conditional)
+if [[ -t 1 && -t 2 ]]; then
+  declare -r RED='\033[0;31m' GREEN='\033[0;32m' YELLOW='\033[0;33m' NC='\033[0m'
+else
+  declare -r RED='' GREEN='' YELLOW='' NC=''
+fi
 
 msg()   { printf '%b\n' "$*"; }
 ok()    { msg "${GREEN}✓${NC} $*"; }
@@ -27,10 +35,10 @@ die()   { error "${*:2}"; exit "${1:-1}"; }
 
 show_help() {
   cat <<EOF
-install.sh $VERSION - Install dux utility
+$SCRIPT_NAME $VERSION - Install dux utility
 
 USAGE
-  ./install.sh [OPTIONS]
+  ./$SCRIPT_NAME [OPTIONS]
 
 OPTIONS
   -h, --help        Show this help
@@ -100,8 +108,7 @@ do_install() {
     msg "Would install: $DEST_BIN/dir-sizes"
     msg "Would symlink: $DEST_BIN/dux -> dir-sizes"
   else
-    cp "$SRC_BIN" "$DEST_BIN/dir-sizes"
-    chmod +x "$DEST_BIN/dir-sizes"
+    install -m 755 "$SRC_BIN" "$DEST_BIN/dir-sizes"
     ok "Installed: $DEST_BIN/dir-sizes"
 
     # Create symlink (remove existing first)
@@ -114,8 +121,7 @@ do_install() {
   if ((dry_run)); then
     msg "Would install: $DEST_COMP/dux"
   else
-    cp "$SRC_COMP" "$DEST_COMP/dux"
-    chmod 644 "$DEST_COMP/dux"
+    install -m 644 "$SRC_COMP" "$DEST_COMP/dux"
     ok "Installed: $DEST_COMP/dux"
   fi
 
@@ -123,16 +129,15 @@ do_install() {
   if ((dry_run)); then
     msg "Would install: $DEST_MAN/dux.1"
   else
-    cp "$SRC_MAN" "$DEST_MAN/dux.1"
-    chmod 644 "$DEST_MAN/dux.1"
+    install -m 644 "$SRC_MAN" "$DEST_MAN/dux.1"
     ok "Installed: $DEST_MAN/dux.1"
 
     # Update man database
     if command -v mandb &>/dev/null; then
       if ((EUID == 0)); then
-        mandb -q 2>/dev/null || true
+        mandb -q 2>/dev/null ||:
       else
-        mandb -q "$DEST_MAN/.." 2>/dev/null || true
+        mandb -q "$DEST_MAN/.." 2>/dev/null ||:
       fi
       ok "Updated man database"
     fi
@@ -180,7 +185,7 @@ do_uninstall() {
 
   # Update man database if root
   if ((EUID == 0)) && ! ((dry_run)) && command -v mandb &>/dev/null; then
-    mandb -q 2>/dev/null || true
+    mandb -q 2>/dev/null ||:
   fi
 
   msg "\n${GREEN}Uninstallation complete!${NC}"
@@ -201,6 +206,7 @@ main() {
     esac
     shift
   done
+  readonly -- uninstall dry_run
 
   set_destinations
   check_sources

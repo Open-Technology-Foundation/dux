@@ -6,8 +6,8 @@
 declare -gi TESTS_RUN=0 TESTS_PASSED=0 TESTS_FAILED=0
 declare -a FAILED_TESTS=()
 
-# Colors for output
-if [[ -t 1 ]]; then
+# Colors for output (BCS0105: check both stdout and stderr)
+if [[ -t 1 && -t 2 ]]; then
   declare -gr GREEN=$'\033[0;32m' RED=$'\033[0;31m' YELLOW=$'\033[0;33m' NC=$'\033[0m'
 else
   declare -gr GREEN='' RED='' YELLOW='' NC=''
@@ -21,7 +21,7 @@ assert_equals() {
 
   TESTS_RUN+=1
 
-  if [[ "$expected" == "$actual" ]]; then
+  if [[ $expected == "$actual" ]]; then
     TESTS_PASSED+=1
     echo "${GREEN}✓${NC} $test_name"
     return 0
@@ -42,7 +42,7 @@ assert_contains() {
 
   TESTS_RUN+=1
 
-  if [[ "$haystack" =~ $needle ]]; then
+  if [[ $haystack =~ $needle ]]; then
     TESTS_PASSED+=1
     echo "${GREEN}✓${NC} $test_name"
     return 0
@@ -63,7 +63,7 @@ assert_not_contains() {
 
   TESTS_RUN+=1
 
-  if [[ ! "$haystack" =~ $needle ]]; then
+  if [[ ! $haystack =~ $needle ]]; then
     TESTS_PASSED+=1
     echo "${GREEN}✓${NC} $test_name"
     return 0
@@ -104,7 +104,7 @@ assert_file_exists() {
 
   TESTS_RUN+=1
 
-  if [[ -f "$file" ]]; then
+  if [[ -f $file ]]; then
     TESTS_PASSED+=1
     echo "${GREEN}✓${NC} $test_name"
     return 0
@@ -123,7 +123,7 @@ assert_dir_exists() {
 
   TESTS_RUN+=1
 
-  if [[ -d "$dir" ]]; then
+  if [[ -d $dir ]]; then
     TESTS_PASSED+=1
     echo "${GREEN}✓${NC} $test_name"
     return 0
@@ -207,7 +207,7 @@ assert_not_empty() {
 
   TESTS_RUN+=1
 
-  if [[ -n "$value" ]]; then
+  if [[ -n $value ]]; then
     TESTS_PASSED+=1
     echo "${GREEN}✓${NC} $test_name"
     return 0
@@ -228,7 +228,7 @@ assert_regex_match() {
 
   TESTS_RUN+=1
 
-  if [[ "$text" =~ $pattern ]]; then
+  if [[ $text =~ $pattern ]]; then
     TESTS_PASSED+=1
     echo "${GREEN}✓${NC} $test_name"
     return 0
@@ -251,7 +251,7 @@ assert_line_count() {
   TESTS_RUN+=1
 
   local -i actual
-  if [[ -z "$text" ]]; then
+  if [[ -z $text ]]; then
     actual=0
   else
     actual=$(echo "$text" | wc -l)
