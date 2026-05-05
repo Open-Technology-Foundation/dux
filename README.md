@@ -110,9 +110,12 @@ sudo dux /var              # Full access to all directories
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
-| 1 | Error (invalid directory, failed to read) |
-| 2 | Too many arguments |
+| 2 | Usage error (too many arguments) |
+| 3 | Directory not found |
+| 5 | I/O error (mktemp, du failure) |
 | 22 | Invalid option |
+
+Aligned with [BCS §BCS0602](https://github.com/Open-Technology-Foundation/bash-coding-standard) canonical exit codes since v1.4.2. Scripts that previously checked `[[ $? -eq 1 ]]` for "bad path" must update to `-eq 3`.
 
 ## Requirements
 

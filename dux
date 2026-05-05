@@ -104,7 +104,7 @@ main() {
   # Default to current directory if no directory specified
   : "${dir:=./}"
 
-  # Validate directory exists
+  # Validate path is an existing directory
   [[ -d $dir ]] || die 3 "Not a directory ${dir@Q}"
 
   # Set up temp file (use global for trap access)
@@ -113,13 +113,15 @@ main() {
   # Set trap for cleanup
   trap 'cleanup $?' SIGINT SIGTERM EXIT
 
-  # Find all directories at depth 1
+  # Collect target dir and immediate subdirectories (depth 0 + 1).
+  # Stderr suppressed: permission errors on subtrees are non-fatal here.
   local -a find_opts=()
   #shellcheck disable=SC2015 # false positive
   ((FOLLOW_SYMLINKS)) && find_opts+=(-L) ||:
   readarray -t dirs < <(find "${find_opts[@]}" "$dir" -maxdepth 1 -type d 2>/dev/null ||:)
 
-  # Check if we found any directories
+  # Defensive: find should always emit at least $dir; empty result indicates
+  # find failed entirely (e.g. dir vanished between -d check and exec).
   ((${#dirs[@]})) || die 3 "No directories found in ${dir@Q}"
 
   # First pass: collect directory sizes directly using du
