@@ -6,7 +6,7 @@ shopt -s inherit_errexit shift_verbose extglob nullglob
 # Lock down PATH for security
 declare -rx PATH='/usr/local/bin:/usr/bin:/bin'
 
-declare -r VERSION=1.4.3
+declare -r VERSION=1.4.4
 declare -r SCRIPT_NAME=${0##*/} # Script basename only
 
 # Global for trap cleanup
@@ -107,11 +107,11 @@ main() {
   # Validate path is an existing directory
   [[ -d $dir ]] || die 3 "Not a directory ${dir@Q}"
 
-  # Set up temp file (use global for trap access)
-  DIRSIZES_TMPFILE=$(mktemp) || die 5 'Failed to create temporary file'
-
-  # Set trap for cleanup
+  # Install trap before resource creation (BCS0110): ensures any signal
+  # between mktemp and use cannot leave an orphan tmp file. cleanup() guards
+  # against an unset DIRSIZES_TMPFILE so firing pre-mktemp is a no-op.
   trap 'cleanup $?' SIGINT SIGTERM EXIT
+  DIRSIZES_TMPFILE=$(mktemp) || die 5 'Failed to create temporary file'
 
   # Collect target dir and immediate subdirectories (depth 0 + 1).
   # Stderr suppressed: permission errors on subtrees are non-fatal here.

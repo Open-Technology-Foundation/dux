@@ -5,6 +5,15 @@ All notable changes to dux are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] - 2026-05-06
+
+### Fixed
+- Close trap/mktemp signal-race window (BCS §BCS0110): install
+  `SIGINT/SIGTERM/EXIT` trap *before* `mktemp`, so a signal arriving
+  between resource creation and trap installation can no longer leave
+  an orphan temporary file. `cleanup` already guards on
+  `${DIRSIZES_TMPFILE:-}`, so firing pre-mktemp is a safe no-op.
+
 ## [1.4.3] - 2026-05-06
 
 ### Changed
@@ -86,6 +95,7 @@ I/O failures previously masked under `1` now surface as `5`.
 - Support for relative and absolute paths
 - Permission error handling (continues with accessible content)
 
+[1.4.4]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.0...v1.4.1
