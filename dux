@@ -6,7 +6,7 @@ shopt -s inherit_errexit shift_verbose extglob nullglob
 # Lock down PATH for security
 declare -rx PATH='/usr/local/bin:/usr/bin:/bin'
 
-declare -r VERSION=1.4.1
+declare -r VERSION=1.4.2
 declare -r SCRIPT_NAME=${0##*/} # Script basename only
 
 # Global for trap cleanup
@@ -15,14 +15,11 @@ declare -- DIRSIZES_TMPFILE=''
 # Runtime flags
 declare -i FOLLOW_SYMLINKS=0 VERBOSE=1
 
-# Core message function
-_msg() {
-  local -- prefix="$SCRIPT_NAME:" msg
-  for msg in "$@"; do printf '%s %s\n' "$prefix" "$msg"; done
-}
-# Error message to stderr
-error() { >&2 _msg "$@"; }
-# Exit with error
+# Core message functions
+_msg() { >&2 printf "$SCRIPT_NAME: $1 %s\n" "${@:2}"; }
+# Future expansion:
+#info() { ((VERBOSE)) || return 0; _msg '◉' "$@"; }
+error() { _msg '✗' "$@"; }
 die() { (($# < 2)) || error "${@:2}"; exit "${1:-0}"; }
 
 # --------------------------------------------------------------------------------
@@ -59,8 +56,9 @@ OUTPUT
 
 EXIT CODES
   0   Success
-  1   Error (invalid directory, read failure)
-  2   Too many arguments
+  2   Usage error (too many arguments)
+  3   Directory not found
+  5   I/O error (mktemp, du failure)
   22  Invalid option
 
 More info: https://github.com/Open-Technology-Foundation/dux
@@ -71,11 +69,10 @@ HELP
 # Cleanup function for trap
 # --------------------------------------------------------------------------------
 cleanup() {
+  local -i exitcode=${1:-$?}
   trap - SIGINT SIGTERM EXIT
-  if [[ -n ${DIRSIZES_TMPFILE:-} ]] && [[ -f $DIRSIZES_TMPFILE ]]; then
-    rm -f "$DIRSIZES_TMPFILE"
-  fi
-  exit "${1:-0}"
+  [[ -z ${DIRSIZES_TMPFILE:-} ]] || rm -f "$DIRSIZES_TMPFILE"
+  exit "$exitcode"
 }
 
 # --------------------------------------------------------------------------------
@@ -91,8 +88,8 @@ main() {
       -L)           FOLLOW_SYMLINKS=1 ;;
       -v|--verbose) VERBOSE=1 ;;
       -q|--quiet)   VERBOSE=0 ;;
-      -h|--help)    show_help; return 0 ;;
-      -V|--version) echo "$SCRIPT_NAME $VERSION"; return 0 ;;
+      -h|--help)    show_help; exit 0 ;;
+      -V|--version) printf '%s %s\n' "$SCRIPT_NAME" "$VERSION"; exit 0 ;;
       --)           shift
                     #shellcheck disable=SC2015 # false positive
                     (($#)) && [[ -z $dir ]] && dir=$1 ||:
@@ -108,10 +105,10 @@ main() {
   : "${dir:=./}"
 
   # Validate directory exists
-  [[ -d $dir ]] || die 1 "Not a directory ${dir@Q}"
+  [[ -d $dir ]] || die 3 "Not a directory ${dir@Q}"
 
   # Set up temp file (use global for trap access)
-  DIRSIZES_TMPFILE=$(mktemp) || die 1 'Failed to create temporary file'
+  DIRSIZES_TMPFILE=$(mktemp) || die 5 'Failed to create temporary file'
 
   # Set trap for cleanup
   trap 'cleanup $?' SIGINT SIGTERM EXIT
@@ -123,7 +120,7 @@ main() {
   readarray -t dirs < <(find "${find_opts[@]}" "$dir" -maxdepth 1 -type d 2>/dev/null ||:)
 
   # Check if we found any directories
-  ((${#dirs[@]})) || die 1 "No directories found in ${dir@Q}"
+  ((${#dirs[@]})) || die 3 "No directories found in ${dir@Q}"
 
   # First pass: collect directory sizes directly using du
   # Temp file already created by mktemp, just ensure it's empty
@@ -141,11 +138,11 @@ main() {
 
     # Check if we got a valid size
     if [[ -z $size ]] || [[ ! $size =~ ^[0-9]+$ ]]; then
-      die 1 "Failed to calculate size for ${current_dir@Q}"
+      die 5 "Failed to calculate size for ${current_dir@Q}"
     fi
 
     # Write to temporary file with proper format
-    printf "%15d 0 %s\n" "$size" "$current_dir" >> "$DIRSIZES_TMPFILE"
+    printf '%15d 0 %s\n' "$size" "$current_dir" >> "$DIRSIZES_TMPFILE"
   done
 
   # Sort by size
@@ -155,7 +152,7 @@ main() {
   local -- output_dir
   while read -r size _ output_dir; do
     hr_size=$(numfmt --to=iec --suffix=B --format="%.1f" "$size")
-    printf "%-10s\t%s\n" "$hr_size" "$output_dir"
+    printf '%-10s\t%s\n' "$hr_size" "$output_dir"
   done < "$DIRSIZES_TMPFILE"
 
   # Clean up (trap will handle this, but being explicit)

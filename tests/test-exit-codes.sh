@@ -38,14 +38,14 @@ assert_exit_code 0 "$ec" 'Exit 0 on --help'
 "$DUX" --version >/dev/null 2>&1; ec=$?
 assert_exit_code 0 "$ec" 'Exit 0 on --version'
 
-# Test: Exit 1 on non-existent directory
+# Test: Exit 3 on non-existent directory
 output=$("$DUX" /nonexistent/path/that/does/not/exist 2>&1); ec=$?
-assert_exit_code 1 "$ec" 'Exit 1 on non-existent directory'
+assert_exit_code 3 "$ec" 'Exit 3 on non-existent directory'
 assert_contains "$output" 'Not a directory' "Shows 'not a directory' error"
 
-# Test: Exit 1 on file (not directory)
+# Test: Exit 3 on file (not directory)
 output=$("$DUX" "$TEST_DIR"/regular-file.txt 2>&1); ec=$?
-assert_exit_code 1 "$ec" 'Exit 1 when path is a file'
+assert_exit_code 3 "$ec" 'Exit 3 when path is a file'
 assert_contains "$output" 'Not a directory' "Shows 'not a directory' for file"
 
 # Test: Exit 2 on too many arguments
