@@ -6,7 +6,7 @@ shopt -s inherit_errexit shift_verbose extglob nullglob
 # Lock down PATH for security
 declare -rx PATH='/usr/local/bin:/usr/bin:/bin'
 
-declare -r VERSION=1.4.2
+declare -r VERSION=1.4.3
 declare -r SCRIPT_NAME=${0##*/} # Script basename only
 
 # Global for trap cleanup
@@ -126,22 +126,20 @@ main() {
   # Temp file already created by mktemp, just ensure it's empty
   : > "$DIRSIZES_TMPFILE"
 
-  local -- current_dir
+  local -- current_dir du_out
   for current_dir in "${dirs[@]}"; do
-    # Get the raw size in bytes using du
-    # du may return exit code 1 on permission errors but still outputs the size it could calculate
+    # du -sb may exit 1 on permission errors but still emit a valid total on
+    # stdout. Per BCS0605 this partial-output behavior is expected and safe to
+    # accept; downstream validation rejects truly empty output.
     if ((VERBOSE)); then
-      size=$(du -sb "$current_dir" | cut -f1 || echo '')
+      du_out=$(du -sb "$current_dir") ||:
     else
-      size=$(du -sb "$current_dir" 2>/dev/null | cut -f1 || echo '')
+      du_out=$(du -sb "$current_dir" 2>/dev/null) ||:
     fi
+    # Output format: "<bytes>\t<path>"; strip from first non-digit.
+    size=${du_out%%[!0-9]*}
+    [[ -n $size ]] || die 5 "Failed to calculate size for ${current_dir@Q}"
 
-    # Check if we got a valid size
-    if [[ -z $size ]] || [[ ! $size =~ ^[0-9]+$ ]]; then
-      die 5 "Failed to calculate size for ${current_dir@Q}"
-    fi
-
-    # Write to temporary file with proper format
     printf '%15d 0 %s\n' "$size" "$current_dir" >> "$DIRSIZES_TMPFILE"
   done
 

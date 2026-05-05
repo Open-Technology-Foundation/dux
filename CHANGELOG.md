@@ -5,6 +5,14 @@ All notable changes to dux are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-05-06
+
+### Changed
+- Refactor size-calculation loop: drop `cut` subprocess and `|| echo ''`
+  rescue in favor of direct `du -sb` capture with BCS-canonical `||:`
+  suppression and parameter-expansion size extraction. No behavior change;
+  one fewer subprocess spawned per directory iterated.
+
 ## [1.4.2] - 2026-05-06
 
 ### Changed
@@ -78,6 +86,7 @@ I/O failures previously masked under `1` now surface as `5`.
 - Support for relative and absolute paths
 - Permission error handling (continues with accessible content)
 
+[1.4.3]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/Open-Technology-Foundation/dux/compare/v1.3.0...v1.4.0
