@@ -6,7 +6,7 @@ shopt -s inherit_errexit shift_verbose extglob nullglob
 # Lock down PATH for security
 declare -rx PATH='/usr/local/bin:/usr/bin:/bin'
 
-declare -r VERSION='1.0.0'
+declare -r VERSION='1.4.4'
 declare -r SCRIPT_NAME=${0##*/}
 declare -- SCRIPT_DIR
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

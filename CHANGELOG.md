@@ -5,6 +5,34 @@ All notable changes to dux are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Reject extra operands after `--` with canonical usage exit code `2` instead
+  of silently ignoring trailing arguments.
+- Keep installer metadata in sync with runtime version (`install.sh` now reports
+  `1.4.4`).
+- Sync man page metadata and exit-code documentation with runtime behavior
+  (`0, 2, 3, 5, 22`).
+- Handle newlines in subdirectory names (previously aborted with exit `5`) and
+  preserve trailing whitespace in names (previously stripped from the output);
+  the pipeline is now NUL-delimited end to end.
+- Accept a directory name beginning with `-` (`dux -- -dir`); it was parsed
+  as a `find` expression and failed with exit `3`. Such a path is shown with a
+  `./` prefix.
+
+### Changed
+- Measure subdirectories in parallel: one `du -sb` per directory, one job per
+  CPU via `xargs`. Reported sizes are unchanged, including for hard links.
+- Format the whole result with a single `numfmt` instead of one per line.
+- Drop the temporary file and its `SIGINT/SIGTERM/EXIT` trap; `mktemp` is no
+  longer a failure mode behind exit `5`, and a `SIGTERM` now exits `143`.
+- `find`/`xargs` (findutils) and `nproc` are now required alongside `du`,
+  `sort` and `numfmt`.
+- Remove undocumented `-v/--verbose` alias from argument parsing; verbose mode
+  remains the default behavior.
+- Add argument-contract tests for `--` edge cases and invalid combined options.
+
 ## [1.4.4] - 2026-05-06
 
 ### Fixed
@@ -95,6 +123,7 @@ I/O failures previously masked under `1` now surface as `5`.
 - Support for relative and absolute paths
 - Permission error handling (continues with accessible content)
 
+[Unreleased]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.4...HEAD
 [1.4.4]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.3...v1.4.4
 [1.4.3]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.2...v1.4.3
 [1.4.2]: https://github.com/Open-Technology-Foundation/dux/compare/v1.4.1...v1.4.2

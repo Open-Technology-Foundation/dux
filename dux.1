@@ -1,6 +1,6 @@
 .\" dux - Quick directory size overview
 .\" Man page for dux (dir-sizes)
-.TH DUX 1 "December 2025" "dux 1.4.0" "User Commands"
+.TH DUX 1 "May 2026" "dux 1.4.4" "User Commands"
 .SH NAME
 dux \- quick directory size overview
 .SH SYNOPSIS
@@ -36,11 +36,14 @@ Display version information and exit.
 .B 0
 Success.
 .TP
-.B 1
-Error (invalid directory, read failure, temp file error).
-.TP
 .B 2
-Too many arguments provided.
+Usage error (too many arguments).
+.TP
+.B 3
+Directory not found.
+.TP
+.B 5
+I/O error (du failure).
 .TP
 .B 22
 Invalid command-line option.
@@ -95,10 +98,6 @@ Combine options:
 .RS
 .B dux -Lq /some/path
 .RE
-.SH FILES
-.B dux
-creates a temporary file using \fBmktemp\fR(1) for sorting purposes.
-The file is automatically cleaned up on exit or interrupt.
 .SH ENVIRONMENT
 .B dux
 sets a restricted PATH for security:
@@ -108,15 +107,16 @@ sets a restricted PATH for security:
 .RE
 .SH NOTES
 .B dux
-uses \fBdu \-sb\fR to calculate actual disk usage in bytes for each
-subdirectory. Permission errors are reported to stderr (unless \fB-q\fR
+uses GNU \fBdu \-sb\fR to calculate apparent size in bytes for each
+subdirectory, running one \fBdu\fR per directory in parallel (one job per
+CPU, via \fBxargs\fR(1)). A file hard-linked into several subdirectories
+is therefore counted in full for each of them. Permission errors are reported to stderr (unless \fB-q\fR
 is used) but do not stop execution; accessible content is still measured
 and displayed.
 .PP
 Empty directories show as 0.0B (just directory metadata).
 .PP
-The script handles SIGINT and SIGTERM signals gracefully, cleaning up
-temporary files before exit.
+No temporary files are created; sizes are sorted and formatted in a pipeline.
 .SH LIMITATIONS
 Without the \fB-L\fR flag, symbolic links used as the starting directory
 may not work correctly due to how \fBfind\fR(1) handles symlinked paths.

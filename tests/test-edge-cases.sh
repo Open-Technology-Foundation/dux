@@ -177,6 +177,48 @@ else
   skip_test 'H1 regression test requires non-root (root bypasses permissions)'
 fi
 
+# Test: Newline in a subdirectory name must not abort the run
+mkdir -p -- "$TEST_DIR"/newline/plain-sub "$TEST_DIR"/newline/split$'\n'name
+output=$("$DUX" -- "$TEST_DIR"/newline 2>&1); ec=$?
+assert_exit_code 0 "$ec" 'Newline in subdirectory name handled'
+assert_contains "$output" 'plain-sub' 'Sibling of newline-named dir still shown'
+
+# Test: Trailing whitespace in a name survives to the output
+# (sentinel keeps $() from eating the final newline)
+mkdir -p -- "$TEST_DIR/whitespace/trail  "
+output=$("$DUX" -- "$TEST_DIR"/whitespace 2>&1; echo x)
+assert_contains "$output" $'trail  \n' 'Trailing whitespace in name preserved'
+
+# Test: A file hard-linked into two siblings is counted in full for each.
+# Guards the per-directory du contract: one du over the whole tree would
+# charge the file to whichever sibling it reached first.
+mkdir -p -- "$TEST_DIR"/hardlinks/first "$TEST_DIR"/hardlinks/second
+dd if=/dev/zero of="$TEST_DIR"/hardlinks/first/blob bs=1000 count=100 2>/dev/null
+ln -- "$TEST_DIR"/hardlinks/first/blob "$TEST_DIR"/hardlinks/second/blob
+output=$("$DUX" -- "$TEST_DIR"/hardlinks 2>&1); ec=$?
+assert_exit_code 0 "$ec" 'Hard-linked siblings handled'
+declare -i full_count
+full_count=$(grep -c '^97\.7KB' <<<"$output")
+assert_equals 3 "$full_count" 'Hard-linked file counted in full for both siblings and root'
+
+# Test: No temporary file is needed, so an unusable TMPDIR is harmless
+mkdir -p -- "$TEST_DIR"/no-tmp/sub
+output=$(TMPDIR="$TEST_DIR"/does-not-exist "$DUX" -- "$TEST_DIR"/no-tmp 2>&1); ec=$?
+assert_exit_code 0 "$ec" 'Runs without a usable TMPDIR'
+assert_contains "$output" 'no-tmp/sub' 'Output produced without a usable TMPDIR'
+
+# Test: -q silences du only; the script's own errors still reach stderr
+output=$("$DUX" -q -- "$TEST_DIR"/does-not-exist 2>&1); ec=$?
+assert_exit_code 3 "$ec" '-q does not change the missing-directory exit code'
+assert_contains "$output" 'Not a directory' '-q does not silence script errors'
+
+# Test: A directory name starting with '-' is not parsed as an option by
+# find or du (relative path, so the operand itself begins with the dash)
+mkdir -p -- "$TEST_DIR"/-dash-dir/inner
+output=$(cd -- "$TEST_DIR" && "$DUX" -- -dash-dir 2>&1); ec=$?
+assert_exit_code 0 "$ec" 'Dash-leading directory name handled'
+assert_contains "$output" '-dash-dir/inner' 'Subdirectory of dash-leading dir shown'
+
 print_summary
 exit $?
 

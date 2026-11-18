@@ -97,7 +97,7 @@ dux -L /opt/myapp              # Include symlinked directories
 
 ## Handling Permissions
 
-Permission errors appear on stderr but don't stop execution:
+Permission errors from `du` appear on stderr but don't stop execution:
 
 ```bash
 dux /var                   # Shows errors inline
@@ -112,7 +112,7 @@ sudo dux /var              # Full access to all directories
 | 0 | Success |
 | 2 | Usage error (too many arguments) |
 | 3 | Directory not found |
-| 5 | I/O error (mktemp, du failure) |
+| 5 | I/O error (du failure) |
 | 22 | Invalid option |
 
 Aligned with [BCS §BCS0602](https://github.com/Open-Technology-Foundation/bash-coding-standard) canonical exit codes since v1.4.2. Scripts that previously checked `[[ $? -eq 1 ]]` for "bad path" must update to `-eq 3`.
@@ -120,7 +120,8 @@ Aligned with [BCS §BCS0602](https://github.com/Open-Technology-Foundation/bash-
 ## Requirements
 
 - Bash 5.2+
-- GNU coreutils (du, sort, numfmt)
+- GNU coreutils (`du` with `-sb`, `sort`, `numfmt`, `nproc`)
+- GNU findutils (`find`, `xargs`)
 
 ## Why dux?
 

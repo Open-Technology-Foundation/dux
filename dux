@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
 # dux - Quick directory size overview (sorted smallest to largest)
 set -euo pipefail
-shopt -s inherit_errexit shift_verbose extglob nullglob
+shopt -s inherit_errexit
 
 # Lock down PATH for security
-declare -rx PATH='/usr/local/bin:/usr/bin:/bin'
+declare -rx PATH=/usr/local/bin:/usr/bin:/bin
 
 declare -r VERSION=1.4.4
 declare -r SCRIPT_NAME=${0##*/} # Script basename only
-
-# Global for trap cleanup
-declare -- DIRSIZES_TMPFILE=''
 
 # Runtime flags
 declare -i FOLLOW_SYMLINKS=0 VERBOSE=1
@@ -58,7 +55,7 @@ EXIT CODES
   0   Success
   2   Usage error (too many arguments)
   3   Directory not found
-  5   I/O error (mktemp, du failure)
+  5   I/O error (du failure)
   22  Invalid option
 
 More info: https://github.com/Open-Technology-Foundation/dux
@@ -66,35 +63,39 @@ HELP
 }
 
 # --------------------------------------------------------------------------------
-# Cleanup function for trap
+# Size each directory given as an argument, in parallel.
+# Emits NUL-terminated "<bytes>\t<path>" records in completion order.
 # --------------------------------------------------------------------------------
-cleanup() {
-  local -i exitcode=${1:-$?}
-  trap - SIGINT SIGTERM EXIT
-  [[ -z ${DIRSIZES_TMPFILE:-} ]] || rm -f "$DIRSIZES_TMPFILE"
-  exit "$exitcode"
+calc_sizes() {
+  # One du per directory: a file hard-linked into several siblings counts in
+  # full for each, where a single du over the whole tree would count it once.
+  # du exits 1 on permission errors yet still emits a valid total (BCS0605);
+  # xargs turns that into 123, so the caller validates the records instead.
+  printf '%s\0' "$@" | xargs -0 -r -n1 -P"$(nproc)" du -sb -0 -- ||:
 }
 
 # --------------------------------------------------------------------------------
 # Main function
 # --------------------------------------------------------------------------------
 main() {
-  local -a dirs=()
-  local -- dir='' hr_size=''
-  local -- size=0
+  local -a dirs=() sizes=()
+  local -A sized=()
+  local -- dir='' current_dir record
 
   # Parse arguments
   while (($#)); do case $1 in
       -L)           FOLLOW_SYMLINKS=1 ;;
-      -v|--verbose) VERBOSE=1 ;;
       -q|--quiet)   VERBOSE=0 ;;
       -h|--help)    show_help; exit 0 ;;
       -V|--version) printf '%s %s\n' "$SCRIPT_NAME" "$VERSION"; exit 0 ;;
       --)           shift
-                    #shellcheck disable=SC2015 # false positive
-                    (($#)) && [[ -z $dir ]] && dir=$1 ||:
+                    (($#)) || break
+                    [[ -z $dir ]] || die 2 "Too many arguments ${1@Q}"
+                    dir=$1
+                    shift
+                    (($# == 0)) || die 2 "Too many arguments ${1@Q}"
                     break ;;
-      -[LvqhV]?*)   set -- "${1:0:2}" "-${1:2}" "${@:2}"; continue ;;
+      -[LqhV]?*)    set -- "${1:0:2}" "-${1:2}" "${@:2}"; continue ;;
       -*)           die 22 "Invalid option ${1@Q}" ;;
       *)            [[ -z $dir ]] || die 2 "Too many arguments ${1@Q}"
                     dir=$1 ;;
@@ -107,58 +108,46 @@ main() {
   # Validate path is an existing directory
   [[ -d $dir ]] || die 3 "Not a directory ${dir@Q}"
 
-  # Install trap before resource creation (BCS0110): ensures any signal
-  # between mktemp and use cannot leave an orphan tmp file. cleanup() guards
-  # against an unset DIRSIZES_TMPFILE so firing pre-mktemp is a no-op.
-  trap 'cleanup $?' SIGINT SIGTERM EXIT
-  DIRSIZES_TMPFILE=$(mktemp) || die 5 'Failed to create temporary file'
+  # find has no '--' for start points: a leading '-' is read as an expression
+  # (BCS1005). A './' prefix makes the operand literal for find and du alike.
+  [[ $dir != -* ]] || dir=./$dir
 
   # Collect target dir and immediate subdirectories (depth 0 + 1).
   # Stderr suppressed: permission errors on subtrees are non-fatal here.
   local -a find_opts=()
   #shellcheck disable=SC2015 # false positive
   ((FOLLOW_SYMLINKS)) && find_opts+=(-L) ||:
-  readarray -t dirs < <(find "${find_opts[@]}" "$dir" -maxdepth 1 -type d 2>/dev/null ||:)
+  #bcscheck disable=BCS1005 # find rejects '--'; $dir is './'-prefixed above
+  readarray -d '' -t dirs < <(
+    find "${find_opts[@]}" "$dir" -maxdepth 1 -type d -print0 2>/dev/null ||:)
 
   # Defensive: find should always emit at least $dir; empty result indicates
   # find failed entirely (e.g. dir vanished between -d check and exec).
   ((${#dirs[@]})) || die 3 "No directories found in ${dir@Q}"
 
-  # First pass: collect directory sizes directly using du
-  # Temp file already created by mktemp, just ensure it's empty
-  : > "$DIRSIZES_TMPFILE"
+  # -q silences du only; the script's own messages still reach stderr.
+  if ((VERBOSE)); then
+    readarray -d '' -t sizes < <(calc_sizes "${dirs[@]}")
+  else
+    readarray -d '' -t sizes < <(calc_sizes "${dirs[@]}" 2>/dev/null)
+  fi
 
-  local -- current_dir du_out
+  # Every directory must come back with a record: du prints a total even
+  # when it exits 1, so a missing record is a genuine failure.
+  for record in "${sizes[@]}"; do
+    sized[${record#*$'\t'}]=1
+  done
   for current_dir in "${dirs[@]}"; do
-    # du -sb may exit 1 on permission errors but still emit a valid total on
-    # stdout. Per BCS0605 this partial-output behavior is expected and safe to
-    # accept; downstream validation rejects truly empty output.
-    if ((VERBOSE)); then
-      du_out=$(du -sb "$current_dir") ||:
-    else
-      du_out=$(du -sb "$current_dir" 2>/dev/null) ||:
-    fi
-    # Output format: "<bytes>\t<path>"; strip from first non-digit.
-    size=${du_out%%[!0-9]*}
-    [[ -n $size ]] || die 5 "Failed to calculate size for ${current_dir@Q}"
-
-    printf '%15d 0 %s\n' "$size" "$current_dir" >> "$DIRSIZES_TMPFILE"
+    [[ -n ${sized[$current_dir]:-} ]] \
+      || die 5 "Failed to calculate size for ${current_dir@Q}"
   done
 
-  # Sort by size
-  sort -n "$DIRSIZES_TMPFILE" -o "$DIRSIZES_TMPFILE"
-
-  # Second pass: display with human-readable sizes while preserving order
-  local -- output_dir
-  while read -r size _ output_dir; do
-    hr_size=$(numfmt --to=iec --suffix=B --format="%.1f" "$size")
-    printf '%-10s\t%s\n' "$hr_size" "$output_dir"
-  done < "$DIRSIZES_TMPFILE"
-
-  # Clean up (trap will handle this, but being explicit)
-  rm -f "$DIRSIZES_TMPFILE"
-
-  return 0
+  # Smallest first. One numfmt formats the whole stream; a fork per line
+  # cost as much as the du calls themselves.
+  printf '%s\0' "${sizes[@]}" \
+    | sort -z -n \
+    | numfmt -z -d $'\t' --field=1 --to=iec --suffix=B --format='%-10.1f' \
+    | tr '\0' '\n'
 }
 
 main "$@"

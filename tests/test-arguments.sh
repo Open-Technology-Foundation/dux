@@ -34,7 +34,7 @@ assert_contains "$output" 'USAGE' '-hV shows help (first option wins)'
 # Test: Combined -Vh shows version (first wins)
 output=$("$DUX" -Vh 2>&1); ec=$?
 assert_exit_code 0 "$ec" '-Vh exits 0'
-assert_contains "$output" 'dir-sizes' '-Vh shows version (first option wins)'
+assert_contains "$output" "${DUX##*/}" '-Vh shows version (first option wins)'
 
 # Test: Invalid option -x exits 22
 output=$("$DUX" -x 2>&1); ec=$?
@@ -44,6 +44,11 @@ assert_contains "$output" 'Invalid option' '-x shows error message'
 # Test: Invalid long option --invalid exits 22
 output=$("$DUX" --invalid 2>&1); ec=$?
 assert_exit_code 22 "$ec" 'Invalid option --invalid exits 22'
+
+# Test: Invalid combined option -Lx exits 22
+output=$("$DUX" -Lx 2>&1); ec=$?
+assert_exit_code 22 "$ec" 'Invalid combined option -Lx exits 22'
+assert_contains "$output" 'Invalid option' '-Lx shows error message'
 
 # Test: -L option accepted
 output=$("$DUX" -L "$TEST_DIR" 2>&1); ec=$?
@@ -69,6 +74,21 @@ assert_exit_code 0 "$ec" 'Combined -qL works'
 output=$("$DUX" "$TEST_DIR" "$TEST_DIR" 2>&1); ec=$?
 assert_exit_code 2 "$ec" 'Too many arguments exits 2'
 assert_contains "$output" 'Too many arguments' "Shows 'too many arguments' error"
+
+# Test: -- with no operand defaults to current directory
+output=$(cd "$TEST_DIR" && "$DUX" -- 2>&1); ec=$?
+assert_exit_code 0 "$ec" '-- with no operand exits 0'
+assert_contains "$output" './' '-- with no operand uses current directory'
+
+# Test: -- accepts exactly one operand
+output=$("$DUX" -- "$TEST_DIR" 2>&1); ec=$?
+assert_exit_code 0 "$ec" '-- with one operand exits 0'
+assert_contains "$output" "$TEST_DIR" '-- with one operand uses provided directory'
+
+# Test: -- rejects extra operands
+output=$("$DUX" -- "$TEST_DIR" "$TEST_DIR/subdir1" 2>&1); ec=$?
+assert_exit_code 2 "$ec" '-- rejects extra operands with exit 2'
+assert_contains "$output" 'Too many arguments' '-- with extra operands shows error'
 
 # Test: Relative path argument works
 output=$(cd "$TEST_DIR" && "$DUX" ./subdir1 2>&1); ec=$?

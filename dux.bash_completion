@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Bash completion for dux (dir-sizes)
 
 _dux() {
