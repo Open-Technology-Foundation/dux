@@ -36,19 +36,19 @@ output=$("$DUX" -Vh 2>&1); ec=$?
 assert_exit_code 0 "$ec" '-Vh exits 0'
 assert_contains "$output" "${DUX##*/}" '-Vh shows version (first option wins)'
 
-# Test: Invalid option -x exits 22
-output=$("$DUX" -x 2>&1); ec=$?
-assert_exit_code 22 "$ec" 'Invalid option -x exits 22'
-assert_contains "$output" 'Invalid option' '-x shows error message'
+# Test: Invalid option -z exits 22
+output=$("$DUX" -z 2>&1); ec=$?
+assert_exit_code 22 "$ec" 'Invalid option -z exits 22'
+assert_contains "$output" 'Invalid option' '-z shows error message'
 
 # Test: Invalid long option --invalid exits 22
 output=$("$DUX" --invalid 2>&1); ec=$?
 assert_exit_code 22 "$ec" 'Invalid option --invalid exits 22'
 
-# Test: Invalid combined option -Lx exits 22
-output=$("$DUX" -Lx 2>&1); ec=$?
-assert_exit_code 22 "$ec" 'Invalid combined option -Lx exits 22'
-assert_contains "$output" 'Invalid option' '-Lx shows error message'
+# Test: Invalid combined option -Lz exits 22
+output=$("$DUX" -Lz 2>&1); ec=$?
+assert_exit_code 22 "$ec" 'Invalid combined option -Lz exits 22'
+assert_contains "$output" 'Invalid option' '-Lz shows error message'
 
 # Test: -L option accepted
 output=$("$DUX" -L "$TEST_DIR" 2>&1); ec=$?

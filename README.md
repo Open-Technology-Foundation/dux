@@ -50,7 +50,8 @@ dux [OPTIONS] [DIRECTORY]
 
 | Option | Description |
 |--------|-------------|
-| `-L` | Follow symlinks |
+| `-L` | Follow all symlinks (a symlinked starting directory is always followed) |
+| `-x, --one-file-system` | Stay on the target's filesystem (skip other mounts, such as `/proc`) |
 | `-q, --quiet` | Suppress permission errors |
 | `-h, --help` | Show help |
 | `-V, --version` | Show version |
@@ -66,7 +67,7 @@ dux /              # Check entire filesystem (may need sudo)
 **Find the largest directories:**
 ```bash
 dux /var | tail -5         # Show 5 largest in /var
-sudo dux / | tail -10      # Show 10 largest on system
+sudo dux -x / | tail -10   # Show 10 largest on the root filesystem
 ```
 
 **Check a project for bloat:**
@@ -92,6 +93,7 @@ dux -L /opt/myapp              # Include symlinked directories
 ```
 
 - Sizes use IEC units: B, KiB, MiB, GiB, TiB
+- Sizes are apparent sizes (bytes of content, as `du -b`), not disk blocks
 - Output is tab-separated (easy to parse with `cut`, `awk`)
 - Sorted smallest to largest (largest at bottom for visibility)
 
@@ -131,7 +133,7 @@ Aligned with [BCS §BCS0602](https://github.com/Open-Technology-Foundation/bash-
 | Human-readable | Yes | Yes | Yes | Yes |
 | One command | Yes | No* | Yes | Yes |
 | Interactive | No | No | Yes | No |
-| Dependencies | coreutils | coreutils | ncurses | Rust |
+| Dependencies | coreutils, findutils | coreutils | ncurses | Rust |
 
 *`du` requires piping through `sort -h` for sorted human-readable output
 
